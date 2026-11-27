@@ -1,0 +1,124 @@
+@model PayMaster.Application.Payslips.PayslipDocument
+@{
+    var l = Model.Line;
+    ViewData["Title"] = $"Payslip — {l.EmployeeName} — {Model.PeriodName}";
+    var statutory = l.Deductions.Where(d => d.Detail == nameof(DeductionKind.Statutory)).ToList();
+    var other = l.Deductions.Where(d => d.Detail != nameof(DeductionKind.Statutory)).ToList();
+}
+<nav aria-label="breadcrumb" class="no-print">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Payslips</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@Model.PayslipNumber</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Payslip · @Model.PeriodName</h1>
+        <p class="page-subtitle">@l.EmployeeName · @Model.PayslipNumber · paid @Ui.Date(Model.PaymentDate)</p>
+    </div>
+    <div class="page-actions">
+        <a asp-action="Pdf" asp-route-id="@ViewContext.RouteData.Values["id"]" asp-route-inline="true" target="_blank" rel="noopener" class="btn btn-outline-secondary"><i class="bi bi-printer me-1"></i> Print</a>
+        <form method="post" asp-action="Email" asp-route-id="@ViewContext.RouteData.Values["id"]">
+            <button class="btn btn-outline-secondary"><i class="bi bi-envelope me-1"></i> Email</button>
+        </form>
+        <a asp-action="Pdf" asp-route-id="@ViewContext.RouteData.Values["id"]" class="btn btn-primary"><i class="bi bi-download me-1"></i> Download PDF</a>
+    </div>
+</div>
+
+@if (Model.IsReversed)
+{
+    <div class="alert alert-danger"><i class="bi bi-arrow-counterclockwise me-1"></i> This payroll was reversed after issue. Refer to the correction payslip for amounts payable.</div>
+}
+
+<div class="card-pm">
+    <div class="card-pm-body p-4">
+        <div class="d-flex flex-wrap justify-content-between gap-3 pb-3 border-bottom border-2" style="border-color: var(--pm-navy-900) !important;">
+            <div>
+                <div class="fs-4 fw-bold" style="color: var(--pm-navy-900);">@Model.Company.Name</div>
+                <div class="small text-muted">@Model.Company.Address</div>
+                <div class="small text-muted">@string.Join(" · ", new[] { Model.Company.Phone, Model.Company.Email }.Where(s => !string.IsNullOrWhiteSpace(s)))</div>
+                @if (Model.Company.KraPin is not null) { <div class="small text-muted">KRA PIN: @Model.Company.KraPin</div> }
+            </div>
+            <div class="text-end">
+                <div class="fs-3 fw-bold text-primary">PAYSLIP</div>
+                <div class="fw-semibold">@Model.PeriodName</div>
+                <div class="small text-muted">No. @Model.PayslipNumber</div>
+            </div>
+        </div>
+
+        <div class="row g-3 py-3">
+            <div class="col-md-6">
+                <dl class="detail-list small">
+                    <dt>Employee</dt><dd>@l.EmployeeName</dd>
+                    <dt>Employee No.</dt><dd>@l.EmployeeNumber</dd>
+                    <dt>Department</dt><dd>@l.DepartmentName</dd>
+                    <dt>Job title</dt><dd>@(l.JobTitle ?? "—")</dd>
+                </dl>
+            </div>
+            <div class="col-md-6">
+                <dl class="detail-list small">
+                    <dt>KRA PIN</dt><dd>@(l.KraPin ?? "—")</dd>
+                    <dt>NSSF / SHA No.</dt><dd>@(l.NssfNumber ?? "—") / @(l.ShaNumber ?? "—")</dd>
+                    <dt>Payment</dt><dd>@(l.BankName) @l.MaskedAccount</dd>
+                    <dt>Days paid</dt><dd>@(l.DaysPayable == l.DaysInPeriod ? "Full month" : $"{l.DaysPayable} of {l.DaysInPeriod}")</dd>
+                </dl>
+            </div>
+        </div>
+
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="breakdown-section mt-0">Earnings</div>
+                <table class="w-100 breakdown-table">
+                    @foreach (var e in l.Earnings.Where(e => e.Amount != 0))
+                    {
+                        <tr><td>@e.Name</td><td class="text-end money">@Ui.Number(e.Amount, 2)</td></tr>
+                    }
+                    <tr class="total"><td>Gross pay</td><td class="text-end money">@Ui.Money(l.GrossEarnings)</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <div class="breakdown-section mt-0">Deductions</div>
+                <table class="w-100 breakdown-table">
+                    @foreach (var dd in statutory.Concat(other.Where(o => o.Amount != 0)))
+                    {
+                        <tr><td>@dd.Name</td><td class="text-end money">@Ui.Number(dd.Amount, 2)</td></tr>
+                    }
+                    <tr class="total"><td>Total deductions</td><td class="text-end money">@Ui.Money(l.TotalDeductions)</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div class="d-flex flex-wrap justify-content-between align-items-center rounded-3 p-3 mt-4 text-white" style="background: var(--pm-navy-900);">
+            <div><div class="small opacity-75">Gross pay</div><div class="fw-semibold money">@Ui.Money(l.GrossEarnings)</div></div>
+            <div><div class="small opacity-75">Total deductions</div><div class="fw-semibold money">@Ui.Money(l.TotalDeductions)</div></div>
+            <div class="text-end"><div class="small" style="color:#93c5fd;">NET PAY</div><div class="fs-3 fw-bold money">@Ui.Money(l.NetPay)</div></div>
+        </div>
+
+        <div class="row g-4 mt-1">
+            <div class="col-md-6">
+                <div class="breakdown-section">Tax computation</div>
+                <table class="w-100 breakdown-table">
+                    <tr><td>Taxable earnings</td><td class="text-end money">@Ui.Number(l.TaxableEarnings, 2)</td></tr>
+                    <tr><td>Less allowable deductions</td><td class="text-end money">−@Ui.Number(l.AllowableDeductions, 2)</td></tr>
+                    <tr><td>Taxable income</td><td class="text-end money">@Ui.Number(l.TaxableIncome, 2)</td></tr>
+                    <tr><td>Tax before reliefs</td><td class="text-end money">@Ui.Number(l.TaxBeforeReliefs, 2)</td></tr>
+                    <tr><td>Personal relief</td><td class="text-end money">−@Ui.Number(l.PersonalRelief, 2)</td></tr>
+                    @if (l.InsuranceRelief > 0) { <tr><td>Insurance relief</td><td class="text-end money">−@Ui.Number(l.InsuranceRelief, 2)</td></tr> }
+                    <tr class="total"><td>PAYE</td><td class="text-end money">@Ui.Money(l.Paye)</td></tr>
+                </table>
+            </div>
+            <div class="col-md-6">
+                <div class="breakdown-section">Employer contributions <span class="text-muted fw-normal text-lowercase">(not deducted)</span></div>
+                <table class="w-100 breakdown-table">
+                    @foreach (var c in l.EmployerContributions)
+                    {
+                        <tr><td>@c.Name</td><td class="text-end money">@Ui.Number(c.Amount, 2)</td></tr>
+                    }
+                    <tr class="total"><td>Total</td><td class="text-end money">@Ui.Money(l.TotalEmployerContributions)</td></tr>
+                </table>
+            </div>
+        </div>
+        <p class="small text-muted mt-4 mb-0">@(Model.Company.Footer ?? "This is a computer-generated payslip.")</p>
+    </div>
+</div>

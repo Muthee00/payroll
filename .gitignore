@@ -1,0 +1,13 @@
+bin/
+obj/
+.vs/
+.vscode/
+*.user
+*.suo
+TestResults/
+logs/
+app-run.log
+mail-pickup/
+storage/
+appsettings.*.local.json
+.env

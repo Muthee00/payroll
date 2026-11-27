@@ -1,0 +1,64 @@
+@using PayMaster.Application.Payroll
+@model PayrollLineDetails
+@{
+    var sections = Model.Steps.GroupBy(s => s.Section).ToList();
+}
+<div class="person mb-3">
+    <span class="avatar avatar-lg @Ui.AvatarClass(Model.EmployeeNumber)">@Ui.Initials(Model.EmployeeName)</span>
+    <div>
+        <div class="fw-bold fs-5">@Model.EmployeeName</div>
+        <div class="text-muted small">@Model.EmployeeNumber · @Model.DepartmentName · @(Model.JobTitle ?? "—")</div>
+        <div class="text-muted small">@Model.PeriodName · @Model.RunReference · @(Model.DaysPayable == Model.DaysInPeriod ? "Full month" : $"{Model.DaysPayable} of {Model.DaysInPeriod} days")</div>
+    </div>
+</div>
+
+@foreach (var error in Model.Errors.Where(e => !string.IsNullOrWhiteSpace(e)))
+{
+    <div class="alert alert-danger py-2 small mb-2"><i class="bi bi-x-circle me-1"></i>@error</div>
+}
+@foreach (var warning in Model.Warnings.Where(w => !string.IsNullOrWhiteSpace(w)))
+{
+    <div class="alert alert-warning py-2 small mb-2"><i class="bi bi-exclamation-triangle me-1"></i>@warning</div>
+}
+
+<div class="row g-2 my-3 text-center">
+    <div class="col-4"><div class="border rounded-3 p-2"><div class="small text-muted">Gross</div><div class="fw-bold money">@Ui.MoneyShort(Model.GrossEarnings)</div></div></div>
+    <div class="col-4"><div class="border rounded-3 p-2"><div class="small text-muted">Deductions</div><div class="fw-bold money text-danger">@Ui.MoneyShort(Model.TotalDeductions)</div></div></div>
+    <div class="col-4"><div class="border rounded-3 p-2 bg-light"><div class="small text-muted">Net pay</div><div class="fw-bold money text-success">@Ui.MoneyShort(Model.NetPay)</div></div></div>
+</div>
+
+@if (Model.Steps.Count == 0)
+{
+    <p class="text-muted">No calculation available for this employee.</p>
+}
+else
+{
+    @foreach (var grp in sections)
+    {
+        <div class="breakdown-section">@grp.Key</div>
+        <table class="w-100 breakdown-table">
+            @foreach (var step in grp)
+            {
+                var isTotal = step.Label is "Gross earnings" or "Taxable income" or "PAYE" or "Net pay" or "Tax before reliefs";
+                <tr class="@(isTotal ? "fw-semibold" : null)">
+                    <td>
+                        @step.Label
+                        @if (!string.IsNullOrWhiteSpace(step.Detail))
+                        {
+                            <div class="text-muted small fw-normal">@step.Detail</div>
+                        }
+                    </td>
+                    <td class="text-end money align-top">@(step.Label == "Proration" ? Ui.Percent(step.Amount) : (step.Amount < 0 ? "−" + Ui.Money(-step.Amount) : Ui.Money(step.Amount)))</td>
+                </tr>
+            }
+        </table>
+    }
+}
+
+<div class="breakdown-section">Payment</div>
+<dl class="detail-list small">
+    <dt>Method</dt><dd>@Ui.Humanize(Model.PaymentMethod)</dd>
+    <dt>Bank</dt><dd>@(Model.BankName ?? "—")</dd>
+    <dt>Account</dt><dd>@(Model.MaskedAccount ?? "—")</dd>
+    <dt>KRA PIN</dt><dd>@(Model.KraPin ?? "—")</dd>
+</dl>

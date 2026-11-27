@@ -1,0 +1,101 @@
+@model PayMaster.Web.ViewModels.Payroll.PayrollCompareViewModel
+@{
+    ViewData["Title"] = "Compare payroll periods";
+    var c = Model.Comparison;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Payroll History</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Compare</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Compare payroll periods</h1>
+        <p class="page-subtitle">Variance between two payroll runs, with the employees whose net pay changed.</p>
+    </div>
+</div>
+
+<div class="card-pm mb-4">
+    <div class="card-pm-body">
+        <form method="get" asp-action="Compare" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label" for="a">Base payroll</label>
+                <select id="a" name="a" class="form-select">
+                    @foreach (var r in Model.Runs) { <option value="@r.Id" selected="@(Model.A == r.Id)">@r.PeriodName — @r.Reference (@Ui.StatusLabel(r.Status))</option> }
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label" for="b">Compared with</label>
+                <select id="b" name="b" class="form-select">
+                    @foreach (var r in Model.Runs) { <option value="@r.Id" selected="@(Model.B == r.Id || (Model.B is null && r == Model.Runs.FirstOrDefault()))">@r.PeriodName — @r.Reference (@Ui.StatusLabel(r.Status))</option> }
+                </select>
+            </div>
+            <div class="col-md-2"><button class="btn btn-primary w-100" type="submit">Compare</button></div>
+        </form>
+    </div>
+</div>
+
+@if (c is not null)
+{
+    <div class="row gap-row">
+        <div class="col-lg-6">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><h2 class="card-pm-title">Totals</h2></div>
+                <div class="card-pm-body">
+                    <div class="table-wrap">
+                        <table class="table table-pm">
+                            <thead><tr><th></th><th class="text-end">@c.A.PeriodName</th><th class="text-end">@c.B.PeriodName</th><th class="text-end">Change</th></tr></thead>
+                            <tbody>
+                            @foreach (var row in c.Totals)
+                            {
+                                var isCount = row.Label == "Employees";
+                                <tr>
+                                    <td class="fw-semibold">@row.Label</td>
+                                    <td class="text-end money">@(isCount ? row.A.ToString("0") : Ui.MoneyShort(row.A))</td>
+                                    <td class="text-end money">@(isCount ? row.B.ToString("0") : Ui.MoneyShort(row.B))</td>
+                                    <td class="text-end money @(row.Change > 0 ? "trend-up" : row.Change < 0 ? "trend-down" : "trend-flat")">
+                                        @(row.Change > 0 ? "+" : "")@(isCount ? row.Change.ToString("0") : Ui.Number(row.Change))
+                                        @if (row.ChangePercent is decimal pct) { <span class="small">(@(pct > 0 ? "+" : "")@pct%)</span> }
+                                    </td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Net pay changes by employee</h2><p class="card-pm-subtitle">@c.Employees.Count employee(s) changed, largest first.</p></div></div>
+                <div class="card-pm-body">
+                    @if (c.Employees.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No differences in employee net pay.</p>
+                    }
+                    else
+                    {
+                        <div class="table-wrap" style="max-height: 480px;">
+                            <table class="table table-pm">
+                                <thead><tr><th>Employee</th><th class="text-end">Base</th><th class="text-end">Compared</th><th class="text-end">Change</th></tr></thead>
+                                <tbody>
+                                @foreach (var e in c.Employees)
+                                {
+                                    <tr>
+                                        <td>@e.EmployeeName<div class="person-meta">@e.EmployeeNumber</div></td>
+                                        <td class="text-end money">@(e.NetA is decimal na ? Ui.MoneyShort(na) : "—")</td>
+                                        <td class="text-end money">@(e.NetB is decimal nb ? Ui.MoneyShort(nb) : "—")</td>
+                                        <td class="text-end money @(e.Change > 0 ? "trend-up" : "trend-down")">@(e.Change > 0 ? "+" : "")@Ui.Number(e.Change)</td>
+                                    </tr>
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}

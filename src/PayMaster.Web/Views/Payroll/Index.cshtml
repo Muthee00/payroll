@@ -1,0 +1,251 @@
+@model PayMaster.Web.ViewModels.Payroll.PayrollIndexViewModel
+@{
+    ViewData["Title"] = "Payroll";
+    var s = Model.Summary;
+    var canProcess = User.Can(Permissions.Payroll.Process);
+    var breakdown = new[]
+    {
+        ("PAYE (Tax)", s.TotalPaye), ("SHIF", s.TotalSha), ("Housing Levy", s.TotalHousingLevy), ("NSSF", s.TotalNssf), ("Other Deductions", s.OtherDeductions)
+    };
+    var breakdownTotal = breakdown.Sum(b => b.Item2);
+    ViewData["RunId"] = s.RunId;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Payroll</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Payroll</h1>
+        <p class="page-subtitle">Manage and run payroll for your employees. Calculate salaries, taxes, SHIF, housing levy and more.</p>
+    </div>
+    <div class="page-actions">
+        <form method="get" asp-action="Index">
+            <div class="input-icon">
+                <i class="bi bi-calendar3"></i>
+                <select name="period" class="form-select ps-5" data-autosubmit aria-label="Payroll period" style="min-width: 190px;">
+                    @foreach (var p in Model.Periods)
+                    {
+                        <option value="@p.Key" selected="@(p.Key == Model.Selected.Key)">@p.Name</option>
+                    }
+                </select>
+            </div>
+        </form>
+        @if (canProcess)
+        {
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#runPayrollModal"><i class="bi bi-play-circle me-1"></i> Run Payroll</button>
+        }
+    </div>
+</div>
+
+<div class="row gap-row">
+    <div class="col-xl-8">
+        <div class="row g-3 mb-4">
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-card kpi-blue flex-column">
+                    <div class="d-flex gap-3 align-items-center"><span class="kpi-icon"><i class="bi bi-people"></i></span><span class="kpi-label mb-0">Total Employees</span></div>
+                    <div class="kpi-value mt-1">@(s.RunId is null ? s.ActiveEmployees : s.EmployeeCount)</div>
+                    <div class="kpi-trend trend-up"><i class="bi bi-arrow-up"></i> @s.NewThisMonth new this month</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-card kpi-green flex-column">
+                    <div class="d-flex gap-3 align-items-center"><span class="kpi-icon"><i class="bi bi-cash-coin"></i></span><span class="kpi-label mb-0">Total Gross Pay</span></div>
+                    <div class="kpi-value mt-1">@Ui.MoneyShort(s.TotalGross)</div>
+                    <div class="kpi-trend trend-flat">@(s.Status is { } st ? Ui.StatusLabel(st) : "Not yet run")</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-card kpi-red flex-column">
+                    <div class="d-flex gap-3 align-items-center"><span class="kpi-icon"><i class="bi bi-currency-exchange"></i></span><span class="kpi-label mb-0">Total Deductions</span></div>
+                    <div class="kpi-value mt-1">@Ui.MoneyShort(s.TotalDeductions)</div>
+                    <div class="kpi-trend trend-flat">@(s.TotalGross > 0 ? Ui.Percent(s.TotalDeductions / s.TotalGross) + " of gross" : "—")</div>
+                </div>
+            </div>
+            <div class="col-sm-6 col-lg-3">
+                <div class="kpi-card kpi-purple flex-column">
+                    <div class="d-flex gap-3 align-items-center"><span class="kpi-icon"><i class="bi bi-wallet2"></i></span><span class="kpi-label mb-0">Net Pay</span></div>
+                    <div class="kpi-value mt-1">@Ui.MoneyShort(s.TotalNetPay)</div>
+                    <div class="kpi-trend trend-flat">Employer cost @Ui.MoneyShort(s.TotalGross + s.EmployerContributions)</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-pm mb-4">
+            <div class="card-pm-header">
+                <div>
+                    <h2 class="card-pm-title">Employees</h2>
+                    <p class="card-pm-subtitle">
+                        @if (s.RunId is int rid)
+                        {
+                            <text>Payroll <a asp-action="Run" asp-route-id="@rid">@s.RunReference</a> for @s.PeriodName. Click an employee for the full calculation.</text>
+                        }
+                        else
+                        {
+                            <text>No payroll has been run for @s.PeriodName yet.</text>
+                        }
+                    </p>
+                </div>
+                @if (Model.Lines is not null)
+                {
+                    <form method="get" asp-action="Index" class="d-flex gap-2">
+                        <input type="hidden" name="period" value="@Model.Selected.Key" />
+                        <div class="input-icon"><i class="bi bi-search"></i><input name="search" value="@Model.LineQuery.Search" class="form-control form-control-sm" placeholder="Search employees..." /></div>
+                        <a asp-action="Run" asp-route-id="@s.RunId" class="btn btn-sm btn-outline-secondary text-nowrap"><i class="bi bi-arrows-fullscreen me-1"></i> Open run</a>
+                    </form>
+                }
+            </div>
+            <div class="card-pm-body">
+                @if (Model.Lines is null)
+                {
+                    <div class="empty-state">
+                        <span class="empty-icon"><i class="bi bi-calendar2-plus"></i></span>
+                        <h3>Ready to run @s.PeriodName payroll</h3>
+                        <p>@s.ActiveEmployees active employees. Add overtime, bonuses and one-off deductions under Deductions › Period items before you start.</p>
+                        @if (canProcess)
+                        {
+                            <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#runPayrollModal"><i class="bi bi-play-circle me-1"></i> Run Payroll</button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <partial name="_LinesTable" model="Model.Lines" />
+                    <partial name="_Pager" model='PagerModel.From(Model.Lines, "employees")' />
+                }
+            </div>
+        </div>
+
+        <div class="card-pm">
+            <div class="card-pm-header">
+                <h2 class="card-pm-title">Recent Payrolls</h2>
+                <a asp-controller="PayrollHistory" asp-action="Index" class="small fw-semibold">View all</a>
+            </div>
+            <div class="card-pm-body">
+                @if (Model.RecentRuns.Count == 0)
+                {
+                    <p class="text-muted mb-0">No payroll runs yet.</p>
+                }
+                else
+                {
+                    <div class="table-wrap">
+                        <table class="table table-pm">
+                            <thead><tr><th>Period</th><th>Reference</th><th>Run date</th><th class="text-end">Employees</th><th class="text-end">Total Gross Pay</th><th class="text-end">Total Deductions</th><th class="text-end">Net Pay</th><th>Status</th></tr></thead>
+                            <tbody>
+                            @foreach (var r in Model.RecentRuns)
+                            {
+                                <tr data-href="@Url.Action("Run", new { id = r.Id })" style="cursor:pointer;">
+                                    <td class="fw-semibold">@r.PeriodName</td>
+                                    <td><a asp-action="Run" asp-route-id="@r.Id">@r.Reference</a></td>
+                                    <td>@Ui.Date(r.CalculatedAt ?? r.CreatedAt)</td>
+                                    <td class="text-end">@r.EmployeeCount</td>
+                                    <td class="text-end money">@Ui.MoneyShort(r.TotalGross)</td>
+                                    <td class="text-end money">@Ui.MoneyShort(r.TotalDeductions)</td>
+                                    <td class="text-end money">@Ui.MoneyShort(r.TotalNetPay)</td>
+                                    <td><span class="status @Ui.StatusCss(r.Status)">@Ui.StatusLabel(r.Status)</span></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="col-xl-4">
+        <div class="card-pm mb-4">
+            <div class="card-pm-header">
+                <div>
+                    <h2 class="card-pm-title">Payroll Breakdown</h2>
+                    <p class="card-pm-subtitle">Deductions and contributions</p>
+                </div>
+            </div>
+            <div class="card-pm-body">
+                @if (breakdownTotal == 0)
+                {
+                    <p class="text-muted mb-0">Deductions appear here once payroll is calculated.</p>
+                }
+                else
+                {
+                    <div class="d-flex flex-wrap align-items-center gap-4">
+                        <div class="position-relative" style="width: 170px; height: 170px;">
+                            <canvas data-chart='@Charts.Doughnut(breakdown.Select(b => b.Item1), breakdown.Select(b => b.Item2))' aria-label="Deductions breakdown chart" role="img"></canvas>
+                            <div class="position-absolute top-50 start-50 translate-middle text-center" style="pointer-events:none;">
+                                <div class="small text-muted">KSh</div>
+                                <div class="fw-bold fs-5 money">@Ui.Number(breakdownTotal)</div>
+                                <div class="small text-muted">Total deductions</div>
+                            </div>
+                        </div>
+                        <ul class="legend-list flex-grow-1">
+                            @for (var i = 0; i < breakdown.Length; i++)
+                            {
+                                <li>
+                                    <span class="legend-swatch" style="background:@Charts.Series[i]"></span>
+                                    <span>@breakdown[i].Item1</span>
+                                    <span class="legend-value">@Ui.MoneyShort(breakdown[i].Item2)</span>
+                                    <span class="legend-pct">@Ui.Percent(breakdown[i].Item2 / breakdownTotal)</span>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                    <div class="divider"></div>
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">Employer contributions (NSSF + Housing Levy)</span>
+                        <span class="fw-semibold money">@Ui.MoneyShort(s.EmployerContributions)</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="card-pm mb-4">
+            <div class="card-pm-header"><h2 class="card-pm-title">Quick Actions</h2></div>
+            <div class="card-pm-body">
+                <div class="quick-actions">
+                    @if (canProcess)
+                    {
+                        <button type="button" class="quick-action" data-bs-toggle="modal" data-bs-target="#runPayrollModal"><i class="bi bi-play-circle"></i> Run Payroll</button>
+                    }
+                    <a class="quick-action" asp-controller="Payslips" asp-action="Index"><i class="bi bi-file-earmark-text"></i> View Payslips</a>
+                    <a class="quick-action" asp-controller="Reports" asp-action="Index"><i class="bi bi-bar-chart-line"></i> Payroll Reports</a>
+                    <a class="quick-action" asp-controller="Deductions" asp-action="Index"><i class="bi bi-sliders"></i> Manage Deductions</a>
+                    <a class="quick-action" asp-controller="Employees" asp-action="Index"><i class="bi bi-people"></i> Update Employee Info</a>
+                    <a class="quick-action" asp-controller="Statutory" asp-action="Index"><i class="bi bi-bank"></i> Statutory Rules</a>
+                </div>
+            </div>
+        </div>
+
+        @if (Model.RecentRuns.FirstOrDefault() is { } latest)
+        {
+            <div class="card-pm">
+                <div class="card-pm-header"><h2 class="card-pm-title">Latest Payroll Run</h2></div>
+                <div class="card-pm-body">
+                    <dl class="detail-list">
+                        <dt>Period</dt><dd>@latest.PeriodName</dd>
+                        <dt>Reference</dt><dd>@latest.Reference</dd>
+                        <dt>Run date</dt><dd>@Ui.DateTime(latest.CalculatedAt ?? latest.CreatedAt)</dd>
+                        <dt>Status</dt><dd><span class="status @Ui.StatusCss(latest.Status)">@Ui.StatusLabel(latest.Status)</span></dd>
+                        <dt>Employees</dt><dd>@(latest.EmployeeCount - latest.ErrorCount) / @latest.EmployeeCount processed</dd>
+                        <dt>Processed by</dt><dd>@(latest.ProcessedBy ?? "—")</dd>
+                    </dl>
+                    <a asp-action="Run" asp-route-id="@latest.Id" class="small fw-semibold d-inline-block mt-3">View payroll details <i class="bi bi-arrow-right"></i></a>
+                </div>
+            </div>
+        }
+    </div>
+</div>
+
+@if (canProcess)
+{
+    <partial name="_RunPayrollModal" model="Model" />
+}
+<partial name="_LineDrawer" />
+
+@section Scripts {
+    <script src="~/lib/chartjs/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

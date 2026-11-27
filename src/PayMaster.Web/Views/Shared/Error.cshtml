@@ -1,0 +1,20 @@
+@{
+    ViewData["Title"] = "Something went wrong";
+    var requestId = ViewData["RequestId"] as string;
+    var statusCode = ViewData["StatusCode"] as int? ?? 500;
+    var notFound = statusCode == 404;
+}
+<div class="card-pm">
+    <div class="empty-state">
+        <span class="empty-icon" style="background:var(--pm-danger-soft);color:var(--pm-danger);">
+            <i class="bi @(notFound ? "bi-compass" : "bi-exclamation-octagon")"></i>
+        </span>
+        <h3>@(notFound ? "Page not found" : "Something went wrong")</h3>
+        <p>@(notFound ? "The page or record you're looking for doesn't exist or was removed." : "The error has been logged. Please try again, or contact support if it continues.")</p>
+        @if (!string.IsNullOrEmpty(requestId))
+        {
+            <p class="small">Reference: <code>@requestId</code></p>
+        }
+        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary mt-2">Back to dashboard</a>
+    </div>
+</div>

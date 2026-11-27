@@ -1,0 +1,36 @@
+@using PayMaster.Application.Reports
+@model IReadOnlyList<ReportDefinition>
+@{
+    ViewData["Title"] = "Reports";
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Reports</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Reports</h1>
+        <p class="page-subtitle">Payroll, statutory and performance reports. Filter by period, department or employee, then export to Excel or PDF, or print.</p>
+    </div>
+</div>
+
+@foreach (var group in Model.GroupBy(r => r.Category))
+{
+    <h2 class="small-caps mb-3 mt-2">@group.Key reports</h2>
+    <div class="row g-3 mb-4">
+        @foreach (var r in group)
+        {
+            <div class="col-md-6 col-xl-4">
+                <a asp-action="Run" asp-route-id="@r.Key" class="card-pm d-flex gap-3 p-3 h-100 text-reset quick-action flex-row text-start align-items-start" style="min-height:0;">
+                    <i class="bi @r.Icon flex-shrink-0"></i>
+                    <span>
+                        <span class="d-block fw-semibold text-body">@r.Title</span>
+                        <span class="d-block small text-muted">@r.Description</span>
+                    </span>
+                </a>
+            </div>
+        }
+    </div>
+}

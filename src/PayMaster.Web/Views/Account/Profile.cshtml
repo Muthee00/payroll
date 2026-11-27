@@ -1,0 +1,111 @@
+@model PayMaster.Web.ViewModels.Account.ProfileViewModel
+@{
+    ViewData["Title"] = "My profile";
+    var fullName = $"{Model.FirstName} {Model.LastName}";
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">My profile</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div class="d-flex align-items-center gap-3">
+        <span class="avatar avatar-lg avatar-solid">@Ui.Initials(fullName)</span>
+        <div>
+            <h1 class="page-title">@fullName</h1>
+            <p class="page-subtitle">@Model.Email · @string.Join(", ", Model.Roles)</p>
+        </div>
+    </div>
+    <div class="page-actions">
+        <a asp-action="ChangePassword" class="btn btn-outline-secondary"><i class="bi bi-key me-1"></i> Change password</a>
+    </div>
+</div>
+
+<div class="row gap-row">
+    <div class="col-lg-5">
+        <div class="card-pm h-100">
+            <div class="card-pm-header">
+                <div>
+                    <h2 class="card-pm-title">Personal details</h2>
+                    <p class="card-pm-subtitle">Last sign-in @Ui.DateTime(Model.LastLoginAt)</p>
+                </div>
+            </div>
+            <div class="card-pm-body">
+                <form method="post" asp-action="Profile" novalidate>
+                    <div asp-validation-summary="ModelOnly" class="alert alert-danger py-2" role="alert"></div>
+                    <div class="row g-3">
+                        <div class="col-sm-6">
+                            <label asp-for="FirstName" class="form-label">First name</label>
+                            <input asp-for="FirstName" class="form-control" autocomplete="given-name" />
+                            <span asp-validation-for="FirstName" class="field-validation-error"></span>
+                        </div>
+                        <div class="col-sm-6">
+                            <label asp-for="LastName" class="form-label">Last name</label>
+                            <input asp-for="LastName" class="form-control" autocomplete="family-name" />
+                            <span asp-validation-for="LastName" class="field-validation-error"></span>
+                        </div>
+                        <div class="col-12">
+                            <label class="form-label">Email</label>
+                            <input class="form-control" value="@Model.Email" disabled />
+                            <div class="form-text">Your sign-in email can only be changed by an administrator.</div>
+                        </div>
+                        <div class="col-12">
+                            <label asp-for="PhoneNumber" class="form-label">Phone number</label>
+                            <input asp-for="PhoneNumber" class="form-control" autocomplete="tel" placeholder="+254 7xx xxx xxx" />
+                            <span asp-validation-for="PhoneNumber" class="field-validation-error"></span>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-4">Save changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card-pm h-100">
+            <div class="card-pm-header">
+                <div>
+                    <h2 class="card-pm-title">Active sessions</h2>
+                    <p class="card-pm-subtitle">Devices currently signed in to your account.</p>
+                </div>
+            </div>
+            <div class="card-pm-body">
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead>
+                        <tr><th>Device</th><th>IP address</th><th>Last active</th><th></th></tr>
+                        </thead>
+                        <tbody>
+                        @foreach (var session in Model.Sessions)
+                        {
+                            var isCurrent = session.Id == Model.CurrentSessionId;
+                            <tr>
+                                <td>
+                                    <div class="fw-semibold text-truncate" style="max-width:260px;" title="@session.UserAgent">@(session.UserAgent ?? "Unknown device")</div>
+                                    <div class="person-meta">Signed in @Ui.DateTime(session.CreatedAt)</div>
+                                </td>
+                                <td>@(session.IpAddress ?? "—")</td>
+                                <td>@Ui.DateTime(session.LastSeenAt)</td>
+                                <td class="text-end">
+                                    @if (isCurrent)
+                                    {
+                                        <span class="status status-success">This device</span>
+                                    }
+                                    else
+                                    {
+                                        <form method="post" asp-action="RevokeSession" asp-route-id="@session.Id"
+                                              data-confirm="Sign this device out of PayMaster?" data-confirm-button="Sign out" data-confirm-variant="danger">
+                                            <button type="submit" class="btn btn-sm btn-outline-secondary">Sign out</button>
+                                        </form>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

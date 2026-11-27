@@ -1,0 +1,36 @@
+@using PayMaster.Web.Navigation
+@{
+    var currentController = ViewContext.RouteData.Values["controller"] as string;
+    string? lastSection = null;
+}
+<aside class="sidebar" aria-label="Main navigation">
+    <a class="sidebar-brand" asp-controller="Dashboard" asp-action="Index">
+        <span class="brand-mark"><i class="bi bi-wallet2"></i></span>
+        <span>
+            <span class="brand-name d-block">PayMaster</span>
+            <span class="brand-tagline">Payroll &amp; HR</span>
+        </span>
+    </a>
+
+    <nav class="sidebar-nav">
+        @foreach (var item in NavigationMenu.For(User))
+        {
+            if (item.Section is not null && item.Section != lastSection)
+            {
+                lastSection = item.Section;
+                <div class="sidebar-section">@item.Section</div>
+            }
+            var active = string.Equals(item.Controller, currentController, StringComparison.OrdinalIgnoreCase);
+            <a class="sidebar-link @(active ? "active" : null)" asp-controller="@item.Controller" asp-action="@item.Action"
+               aria-current="@(active ? "page" : null)">
+                <i class="bi @item.Icon" aria-hidden="true"></i>
+                <span>@item.Title</span>
+            </a>
+        }
+    </nav>
+
+    <div class="sidebar-promo">
+        <span class="promo-icon"><i class="bi bi-calendar2-check"></i></span>
+        <span>Automate your payroll and focus on what matters most.</span>
+    </div>
+</aside>

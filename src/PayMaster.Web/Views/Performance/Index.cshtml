@@ -1,0 +1,201 @@
+@using PayMaster.Application.Performance
+@model PerformanceDashboard
+@{
+    ViewData["Title"] = "Performance";
+    var isManagerOrHr = User.Can(Permissions.Performance.ViewAll) || User.Can(Permissions.Performance.ManageTeam);
+    var deptWithScores = Model.Departments.Where(d => d.AverageScore is not null).ToList();
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Performance</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Performance</h1>
+        <p class="page-subtitle">@(isManagerOrHr ? "Goals, reviews and scores across the teams you manage." : "Your goals, reviews and development.")</p>
+    </div>
+    <div class="page-actions">
+        @if (isManagerOrHr)
+        {
+            <a asp-controller="Goals" asp-action="Create" class="btn btn-outline-secondary"><i class="bi bi-bullseye me-1"></i> New goal</a>
+        }
+        <a asp-controller="Reviews" asp-action="Index" class="btn btn-primary"><i class="bi bi-clipboard-check me-1"></i> Reviews</a>
+    </div>
+</div>
+
+@if (isManagerOrHr)
+{
+    <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-blue"><span class="kpi-icon"><i class="bi bi-people"></i></span><div><div class="kpi-label">Employees</div><div class="kpi-value">@Model.TotalEmployees</div><div class="kpi-trend trend-flat">@Model.EmployeesWithActiveGoals with active goals</div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-orange"><span class="kpi-icon"><i class="bi bi-hourglass-split"></i></span><div><div class="kpi-label">Pending reviews</div><div class="kpi-value">@Model.PendingReviews</div><div class="kpi-trend @(Model.OverdueReviews > 0 ? "trend-down" : "trend-flat")">@Model.OverdueReviews overdue</div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-green"><span class="kpi-icon"><i class="bi bi-check2-circle"></i></span><div><div class="kpi-label">Completed reviews</div><div class="kpi-value">@Model.CompletedReviews</div><div class="kpi-trend @(Model.OverdueGoals > 0 ? "trend-down" : "trend-flat")">@Model.OverdueGoals overdue goals</div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-purple"><span class="kpi-icon"><i class="bi bi-star"></i></span><div><div class="kpi-label">Average score</div><div class="kpi-value">@(Model.AverageScore?.ToString("0.00") ?? "—")<span class="fs-6 text-muted"> / 5</span></div><div class="kpi-trend trend-flat">Finalized reviews</div></div></div></div>
+    </div>
+
+    <div class="row gap-row mb-4">
+        <div class="col-xl-6">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Department performance</h2><p class="card-pm-subtitle">Average finalized review score (1–5)</p></div></div>
+                <div class="card-pm-body">
+                    @if (deptWithScores.Count == 0)
+                    {
+                        <p class="text-muted mb-0">Scores appear once reviews are finalized.</p>
+                    }
+                    else
+                    {
+                        <div class="chart-box-sm" style="height:@(Math.Max(160, deptWithScores.Count * 38))px;">
+                            <canvas role="img" aria-label="Bar chart of average score by department"
+                                    data-chart='@Charts.Bars(deptWithScores.Select(d => d.Department), "Average score", deptWithScores.Select(d => d.AverageScore ?? 0), horizontal: true, max: 5)'></canvas>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-6">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Rating distribution</h2><p class="card-pm-subtitle">Finalized reviews by rating</p></div></div>
+                <div class="card-pm-body">
+                    @if (Model.Distribution.Sum(d => d.Count) == 0)
+                    {
+                        <p class="text-muted mb-0">No finalized reviews yet.</p>
+                    }
+                    else
+                    {
+                        <div class="chart-box-sm">
+                            <canvas role="img" aria-label="Bar chart of review ratings"
+                                    data-chart='@Charts.Bars(Model.Distribution.Select(d => d.Label), "Employees", Model.Distribution.Select(d => (decimal)d.Count))'></canvas>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row gap-row mb-4">
+        <div class="col-xl-7">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Needs attention</h2><p class="card-pm-subtitle">Overdue reviews and low ratings</p></div></div>
+                <div class="card-pm-body">
+                    @if (Model.NeedsAttention.Count == 0)
+                    {
+                        <p class="text-muted mb-0"><i class="bi bi-check2-circle text-success me-1"></i> Nothing needs attention.</p>
+                    }
+                    else
+                    {
+                        <partial name="~/Views/Reviews/_ReviewRows.cshtml" model="Model.NeedsAttention" />
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-5">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Upcoming reviews</h2><p class="card-pm-subtitle">Next due dates</p></div></div>
+                <div class="card-pm-body">
+                    @if (Model.UpcomingReviews.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No open reviews.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-clean d-grid gap-3">
+                            @foreach (var r in Model.UpcomingReviews)
+                            {
+                                <li class="d-flex justify-content-between gap-2">
+                                    <span><a asp-controller="Reviews" asp-action="Details" asp-route-id="@r.Id" class="fw-semibold">@r.EmployeeName</a><span class="d-block small text-muted">@r.CycleName · @Ui.ReviewStage(r.Status)</span></span>
+                                    <span class="small text-muted text-nowrap">Due @Ui.Date(r.DueDate)</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (User.Can(Permissions.Self.Access))
+{
+    <h2 class="small-caps mb-3">My performance</h2>
+    <div class="row gap-row">
+        <div class="col-xl-5">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><h2 class="card-pm-title">My goals</h2><a asp-controller="Goals" asp-action="Index" class="small fw-semibold">All goals</a></div>
+                <div class="card-pm-body">
+                    @if (Model.MyGoals.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No goals assigned yet.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-clean d-grid gap-3">
+                            @foreach (var g in Model.MyGoals.Take(6))
+                            {
+                                <li>
+                                    <div class="d-flex justify-content-between gap-2">
+                                        <a asp-controller="Goals" asp-action="Details" asp-route-id="@g.Id" class="fw-semibold">@g.Title</a>
+                                        <span class="status @Ui.StatusCss(g.Status)">@Ui.Humanize(g.Status)</span>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <div class="progress flex-grow-1" role="progressbar" aria-valuenow="@g.Progress" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar" style="width:@g.Progress%"></div></div>
+                                        <span class="small text-muted">@g.Progress%</span>
+                                    </div>
+                                    <div class="small text-muted">Due @Ui.Date(g.TargetDate)</div>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-4">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><h2 class="card-pm-title">My reviews</h2></div>
+                <div class="card-pm-body">
+                    @if (Model.MyReviews.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No reviews yet.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-clean d-grid gap-3">
+                            @foreach (var r in Model.MyReviews)
+                            {
+                                <li class="d-flex justify-content-between gap-2">
+                                    <span><a asp-controller="Reviews" asp-action="Details" asp-route-id="@r.Id" class="fw-semibold">@r.CycleName</a><span class="d-block small text-muted">@Ui.ReviewStage(r.Status)@(r.OverallRating is null ? "" : $" · {r.OverallRating}")</span></span>
+                                    <span class="status @Ui.StatusCss(r.Status)">@(r.Status == ReviewStatus.Finalized ? "Complete" : "Open")</span>
+                                </li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-xl-3">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><h2 class="card-pm-title">Development</h2></div>
+                <div class="card-pm-body">
+                    @if (Model.MyPlans.Count == 0)
+                    {
+                        <p class="text-muted mb-0">No development plans.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-clean d-grid gap-3">
+                            @foreach (var p in Model.MyPlans)
+                            {
+                                <li><span class="fw-semibold">@p.Title</span><span class="d-block small text-muted">@Ui.Humanize(p.Type) · @p.Progress%</span></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@section Scripts {
+    <script src="~/lib/chartjs/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

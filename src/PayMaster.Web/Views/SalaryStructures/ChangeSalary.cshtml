@@ -1,0 +1,102 @@
+@model PayMaster.Web.ViewModels.Salary.SalaryChangeViewModel
+@{
+    var e = Model.Employee;
+    ViewData["Title"] = $"Change salary — {e.FullName}";
+    var current = e.CurrentSalary;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Employees" asp-action="Index">Employees</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Employees" asp-action="Details" asp-route-id="@e.Id">@e.EmployeeNumber</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Change salary</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Change salary</h1>
+        <p class="page-subtitle">@e.FullName · @(e.JobTitle ?? "—") · @e.DepartmentName. The change is saved as pending until another authorised user approves it.</p>
+    </div>
+</div>
+
+<form method="post" asp-action="ChangeSalary" novalidate>
+    <input type="hidden" asp-for="Input.EmployeeId" />
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+    <div class="row gap-row">
+        <div class="col-lg-4">
+            <div class="card-pm h-100">
+                <div class="card-pm-header"><h2 class="card-pm-title">Current salary</h2></div>
+                <div class="card-pm-body">
+                    @if (current is null)
+                    {
+                        <p class="text-muted mb-0">No approved salary yet.</p>
+                    }
+                    else
+                    {
+                        <table class="w-100 breakdown-table">
+                            <tr><td>Basic</td><td class="text-end money">@Ui.Money(current.BasicSalary)</td></tr>
+                            @foreach (var c in current.Components)
+                            {
+                                <tr><td>@c.Name</td><td class="text-end money">@Ui.Money(c.Amount)</td></tr>
+                            }
+                            <tr class="total"><td>Gross</td><td class="text-end money">@Ui.Money(current.GrossSalary)</td></tr>
+                        </table>
+                        <p class="small text-muted mt-3 mb-0">In force since @Ui.Date(current.EffectiveFrom) · @(current.StructureName ?? "Custom")</p>
+                    }
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8">
+            <div class="card-pm">
+                <div class="card-pm-header"><h2 class="card-pm-title">New salary</h2></div>
+                <div class="card-pm-body row g-3">
+                    <div class="col-md-8">
+                        <label asp-for="Input.SalaryStructureId" class="form-label">Salary structure</label>
+                        <div class="input-group">
+                            <select asp-for="Input.SalaryStructureId" class="form-select">
+                                <option value="">Custom (no structure)</option>
+                                @foreach (var s in Model.Structures)
+                                {
+                                    <option value="@s.Id">@s.Name</option>
+                                }
+                            </select>
+                            <button type="submit" name="command" value="load" class="btn btn-outline-secondary" formnovalidate data-no-busy>Load amounts</button>
+                        </div>
+                        <div class="form-text">"Load amounts" fills the allowances from the structure for the basic entered below.</div>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.BasicSalary" class="form-label">Basic salary (KES) *</label>
+                        <input asp-for="Input.BasicSalary" type="number" step="0.01" min="0" class="form-control" />
+                    </div>
+                    @for (var i = 0; i < Model.Input.Components.Count; i++)
+                    {
+                        <div class="col-md-4">
+                            <label class="form-label" for="comp-@i">@Model.Input.Components[i].Name</label>
+                            <input type="hidden" asp-for="Input.Components[i].SalaryComponentId" />
+                            <input type="hidden" asp-for="Input.Components[i].Name" />
+                            <input asp-for="Input.Components[i].Amount" id="comp-@i" type="number" step="0.01" min="0" class="form-control" />
+                        </div>
+                    }
+                    <div class="col-md-4">
+                        <label asp-for="Input.EffectiveFrom" class="form-label">Effective from *</label>
+                        <input asp-for="Input.EffectiveFrom" type="date" class="form-control" />
+                    </div>
+                    <div class="col-md-8">
+                        <label asp-for="Input.Reason" class="form-label">Reason *</label>
+                        <input asp-for="Input.Reason" class="form-control" placeholder="Promotion, annual review, correction…" />
+                    </div>
+                    <div class="col-12">
+                        <div class="alert alert-light border mb-0 d-flex justify-content-between">
+                            <span>New gross monthly salary</span>
+                            <strong class="money">@Ui.Money(Model.Input.BasicSalary + Model.Input.Components.Sum(c => c.Amount))</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-pm-footer d-flex justify-content-end gap-2">
+                    <a asp-controller="Employees" asp-action="Details" asp-route-id="@e.Id" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Submit for approval</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</form>

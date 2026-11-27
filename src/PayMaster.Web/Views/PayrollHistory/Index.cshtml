@@ -1,0 +1,115 @@
+@model PayMaster.Web.ViewModels.Payroll.PayrollHistoryViewModel
+@{
+    ViewData["Title"] = "Payroll History";
+    var q = Model.Query;
+    var years = Enumerable.Range(DateTime.UtcNow.Year - 4, 6).Reverse();
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Payroll History</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Payroll History</h1>
+        <p class="page-subtitle">Every payroll run with its totals. Finalized payrolls are immutable; reversals keep the original figures.</p>
+    </div>
+    <div class="page-actions">
+        <a asp-action="Compare" class="btn btn-outline-secondary"><i class="bi bi-arrow-left-right me-1"></i> Compare periods</a>
+        @if (User.Can(Permissions.Payroll.Export))
+        {
+            <a asp-action="Export" asp-route-year="@q.Year" asp-route-status="@q.Status" asp-route-search="@q.Search" class="btn btn-outline-secondary"><i class="bi bi-download me-1"></i> Export</a>
+        }
+    </div>
+</div>
+
+@if (Model.Trend.Count > 0)
+{
+    <div class="card-pm mb-4">
+        <div class="card-pm-header">
+            <div>
+                <h2 class="card-pm-title">Monthly payroll trend</h2>
+                <p class="card-pm-subtitle">Finalized gross and net pay, last @Model.Trend.Count months.</p>
+            </div>
+        </div>
+        <div class="card-pm-body">
+            <div class="chart-box">
+                <canvas role="img" aria-label="Line chart of monthly gross and net pay"
+                        data-chart='@Charts.Lines(Model.Trend.Select(t => t.Label), ("Gross pay", Model.Trend.Select(t => t.Gross)), ("Net pay", Model.Trend.Select(t => t.Net)))'></canvas>
+            </div>
+        </div>
+    </div>
+}
+
+<div class="card-pm">
+    <div class="card-pm-body">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end mb-3">
+            <div class="col-md-4">
+                <label class="form-label" for="search">Search</label>
+                <div class="input-icon"><i class="bi bi-search"></i><input id="search" name="search" value="@q.Search" class="form-control" placeholder="Reference or period" /></div>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="year">Year</label>
+                <select id="year" name="year" class="form-select" data-autosubmit>
+                    <option value="">All years</option>
+                    @foreach (var y in years) { <option value="@y" selected="@(q.Year == y)">@y</option> }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="status">Status</label>
+                <select id="status" name="status" class="form-select" data-autosubmit>
+                    <option value="">All statuses</option>
+                    @foreach (var s in Enum.GetValues<PayrollRunStatus>()) { <option value="@s" selected="@(q.Status == s)">@Ui.StatusLabel(s)</option> }
+                </select>
+            </div>
+            <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button></div>
+        </form>
+
+        @if (Model.Runs.Items.Count == 0)
+        {
+            <div class="empty-state"><span class="empty-icon"><i class="bi bi-clock-history"></i></span><h3>No payroll runs</h3><p>Completed payrolls appear here.</p></div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-pm">
+                    <thead>
+                    <tr>
+                        <th>Period</th><th>Reference</th><th class="text-end">Employees</th><th class="text-end">Gross</th><th class="text-end">PAYE</th>
+                        <th class="text-end">SHIF</th><th class="text-end">Housing Levy</th><th class="text-end">NSSF</th><th class="text-end">Deductions</th>
+                        <th class="text-end">Net Pay</th><th>Status</th><th>Processed by</th><th>Approved by</th><th>Processed</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var r in Model.Runs.Items)
+                    {
+                        <tr data-href="@Url.Action("Run", "Payroll", new { id = r.Id })" style="cursor:pointer;">
+                            <td class="fw-semibold">@r.PeriodName @if (r.RunType == PayrollRunType.Correction) { <span class="status status-purple ms-1">Correction</span> }</td>
+                            <td><a asp-controller="Payroll" asp-action="Run" asp-route-id="@r.Id">@r.Reference</a></td>
+                            <td class="text-end">@r.EmployeeCount</td>
+                            <td class="text-end money">@Ui.MoneyShort(r.TotalGross)</td>
+                            <td class="text-end money">@Ui.MoneyShort(r.TotalPaye)</td>
+                            <td class="text-end money">@Ui.MoneyShort(r.TotalSha)</td>
+                            <td class="text-end money">@Ui.MoneyShort(r.TotalHousingLevy)</td>
+                            <td class="text-end money">@Ui.MoneyShort(r.TotalNssf)</td>
+                            <td class="text-end money">@Ui.MoneyShort(r.TotalDeductions)</td>
+                            <td class="text-end money fw-semibold">@Ui.MoneyShort(r.TotalNetPay)</td>
+                            <td><span class="status @Ui.StatusCss(r.Status)">@Ui.StatusLabel(r.Status)</span></td>
+                            <td>@(r.ProcessedBy ?? "—")</td>
+                            <td>@(r.ApprovedBy ?? "—")</td>
+                            <td>@Ui.Date(r.CalculatedAt ?? r.CreatedAt)</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <partial name="_Pager" model='PagerModel.From(Model.Runs, "payroll runs")' />
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/lib/chartjs/chart.umd.min.js"></script>
+    <script src="~/js/charts.js" asp-append-version="true"></script>
+}

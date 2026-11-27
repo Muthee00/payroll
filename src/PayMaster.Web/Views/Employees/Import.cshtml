@@ -1,0 +1,75 @@
+@model PayMaster.Web.ViewModels.Employees.EmployeeImportViewModel
+@{
+    ViewData["Title"] = "Import employees";
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Employees</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Import</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Import employees</h1>
+        <p class="page-subtitle">Upload an Excel file to add many employees at once. Every row is validated first; nothing is saved unless the whole file is valid.</p>
+    </div>
+    <div class="page-actions">
+        <a asp-action="ImportTemplate" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-spreadsheet me-1"></i> Download template</a>
+    </div>
+</div>
+
+<div class="row gap-row">
+    <div class="col-lg-5">
+        <div class="card-pm">
+            <div class="card-pm-body">
+                <form method="post" asp-action="Import" enctype="multipart/form-data" class="d-grid gap-3">
+                    <div>
+                        <label class="form-label" for="file">Excel file (.xlsx)</label>
+                        <input class="form-control" type="file" id="file" name="file" accept=".xlsx" required />
+                        <div class="form-text">Up to @PayMaster.Application.Employees.EmployeeImportExportService.MaxRows rows. Departments, positions and salary structures are matched by code.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-upload me-1"></i> Validate &amp; import</button>
+                </form>
+            </div>
+        </div>
+        <div class="card-pm mt-4">
+            <div class="card-pm-body small">
+                <h2 class="card-pm-title mb-2">Before you import</h2>
+                <ul class="mb-0 ps-3 text-muted d-grid gap-1">
+                    <li>Start from the template and keep its column headers.</li>
+                    <li>National ID and KRA PIN must be unique across all employees.</li>
+                    <li>Dates use the format yyyy-mm-dd.</li>
+                    <li>Starting salaries are created as revisions awaiting approval.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    @if (Model.Result is { Succeeded: false } result)
+    {
+        <div class="col-lg-7">
+            <div class="card-pm">
+                <div class="card-pm-header">
+                    <div>
+                        <h2 class="card-pm-title text-danger"><i class="bi bi-x-circle me-1"></i> Import rejected</h2>
+                        <p class="card-pm-subtitle">@result.Errors.Count problem(s) found in @result.Errors.Select(e => e.Row).Distinct().Count() row(s). Fix them and upload again.</p>
+                    </div>
+                </div>
+                <div class="card-pm-body">
+                    <div class="table-wrap" style="max-height: 480px;">
+                        <table class="table table-pm">
+                            <thead><tr><th style="width:80px;">Row</th><th>Problem</th></tr></thead>
+                            <tbody>
+                            @foreach (var error in result.Errors.OrderBy(e => e.Row))
+                            {
+                                <tr><td class="fw-semibold">@(error.Row == 0 ? "File" : error.Row)</td><td>@error.Message</td></tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

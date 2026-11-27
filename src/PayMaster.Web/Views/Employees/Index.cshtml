@@ -1,0 +1,183 @@
+@model PayMaster.Web.ViewModels.Employees.EmployeeIndexViewModel
+@{
+    ViewData["Title"] = "Employees";
+    var q = Model.Query;
+    var hasFilters = !string.IsNullOrWhiteSpace(q.Search) || q.DepartmentId is not null || q.Status is not null || q.EmploymentType is not null;
+
+    string SortUrl(string column)
+    {
+        var descending = string.Equals(q.SortBy, column, StringComparison.OrdinalIgnoreCase) && !q.SortDescending;
+        return Url.Action("Index", new { q.Search, q.DepartmentId, q.Status, q.EmploymentType, SortBy = column, SortDescending = descending })!;
+    }
+    string SortIcon(string column) =>
+        !string.Equals(q.SortBy, column, StringComparison.OrdinalIgnoreCase) ? "bi-arrow-down-up opacity-25"
+        : q.SortDescending ? "bi-sort-down" : "bi-sort-up";
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Employees</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Employees</h1>
+        <p class="page-subtitle">Manage employee records, employment details and salary information.</p>
+    </div>
+    <div class="page-actions">
+        @if (User.Can(Permissions.Employees.Import))
+        {
+            <a asp-action="Import" class="btn btn-outline-secondary"><i class="bi bi-upload me-1"></i> Import</a>
+        }
+        @if (User.Can(Permissions.Employees.Export))
+        {
+            <a asp-action="Export" asp-route-search="@q.Search" asp-route-departmentId="@q.DepartmentId"
+               asp-route-status="@q.Status" asp-route-employmentType="@q.EmploymentType" class="btn btn-outline-secondary">
+                <i class="bi bi-download me-1"></i> Export
+            </a>
+        }
+        @if (User.Can(Permissions.Employees.Manage))
+        {
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> Add Employee</a>
+        }
+    </div>
+</div>
+
+<div class="card-pm">
+    <div class="card-pm-body">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end mb-3" role="search">
+            <div class="col-lg-4 col-md-6">
+                <label class="form-label" for="search">Search</label>
+                <div class="input-icon">
+                    <i class="bi bi-search"></i>
+                    <input id="search" name="search" value="@q.Search" class="form-control" placeholder="Name, number, ID, KRA PIN, email..." />
+                </div>
+            </div>
+            <div class="col-lg-2 col-md-6">
+                <label class="form-label" for="departmentId">Department</label>
+                <select id="departmentId" name="departmentId" class="form-select" data-autosubmit>
+                    <option value="">All departments</option>
+                    @foreach (var d in Model.Departments)
+                    {
+                        <option value="@d.Id" selected="@(q.DepartmentId == d.Id)">@d.Name</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label" for="status">Status</label>
+                <select id="status" name="status" class="form-select" data-autosubmit>
+                    <option value="">All statuses</option>
+                    @foreach (var s in Enum.GetValues<EmploymentStatus>())
+                    {
+                        <option value="@s" selected="@(q.Status == s)">@Ui.Humanize(s)</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4">
+                <label class="form-label" for="employmentType">Type</label>
+                <select id="employmentType" name="employmentType" class="form-select" data-autosubmit>
+                    <option value="">All types</option>
+                    @foreach (var t in Enum.GetValues<EmploymentType>())
+                    {
+                        <option value="@t" selected="@(q.EmploymentType == t)">@t</option>
+                    }
+                </select>
+            </div>
+            <div class="col-lg-2 col-md-4 d-flex gap-2">
+                <button type="submit" class="btn btn-outline-secondary flex-grow-1"><i class="bi bi-funnel me-1"></i> Filter</button>
+                @if (hasFilters)
+                {
+                    <a asp-action="Index" class="btn btn-light btn-icon" title="Clear filters" aria-label="Clear filters"><i class="bi bi-x-lg"></i></a>
+                }
+            </div>
+        </form>
+
+        @if (Model.Result.Items.Count == 0)
+        {
+            <div class="empty-state">
+                <span class="empty-icon"><i class="bi bi-people"></i></span>
+                @if (hasFilters)
+                {
+                    <h3>No employees match your filters</h3>
+                    <p>Try a different search term or clear the filters.</p>
+                    <a asp-action="Index" class="btn btn-outline-secondary mt-2">Clear filters</a>
+                }
+                else
+                {
+                    <h3>No employees yet</h3>
+                    <p>Add your first employee or import your team from Excel.</p>
+                    @if (User.Can(Permissions.Employees.Manage))
+                    {
+                        <a asp-action="Create" class="btn btn-primary mt-2"><i class="bi bi-plus-lg me-1"></i> Add Employee</a>
+                    }
+                }
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-pm">
+                    <thead>
+                    <tr>
+                        <th><a class="sort-link" href="@SortUrl("name")">Employee <i class="bi @SortIcon("name")"></i></a></th>
+                        <th><a class="sort-link" href="@SortUrl("number")">Number <i class="bi @SortIcon("number")"></i></a></th>
+                        <th><a class="sort-link" href="@SortUrl("department")">Department <i class="bi @SortIcon("department")"></i></a></th>
+                        <th>Type</th>
+                        <th><a class="sort-link" href="@SortUrl("hired")">Hired <i class="bi @SortIcon("hired")"></i></a></th>
+                        @if (Model.ShowSalary)
+                        {
+                            <th class="text-end">Basic Salary</th>
+                            <th class="text-end">Gross Salary</th>
+                        }
+                        <th><a class="sort-link" href="@SortUrl("status")">Status <i class="bi @SortIcon("status")"></i></a></th>
+                        <th class="text-end"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var e in Model.Result.Items)
+                    {
+                        <tr data-href="@Url.Action("Details", new { id = e.Id })" style="cursor:pointer;">
+                            <td>
+                                <div class="person">
+                                    <span class="avatar @Ui.AvatarClass(e.EmployeeNumber)">@Ui.Initials(e.FullName)</span>
+                                    <div class="min-w-0">
+                                        <a class="row-link person-name" asp-action="Details" asp-route-id="@e.Id">@e.FullName</a>
+                                        <div class="person-meta">@(e.JobTitle ?? "—")</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-muted">@e.EmployeeNumber</td>
+                            <td>@e.DepartmentName</td>
+                            <td>@e.EmploymentType</td>
+                            <td>@Ui.Date(e.EmploymentDate)</td>
+                            @if (Model.ShowSalary)
+                            {
+                                <td class="text-end money">@(e.BasicSalary is decimal b ? Ui.MoneyShort(b) : "—")</td>
+                                <td class="text-end money">@(e.GrossSalary is decimal g ? Ui.MoneyShort(g) : "—")</td>
+                            }
+                            <td><span class="status @Ui.StatusCss(e.Status)">@Ui.Humanize(e.Status)</span></td>
+                            <td class="text-end">
+                                <div class="dropdown">
+                                    <button class="btn btn-light btn-icon btn-sm border-0" type="button" data-bs-toggle="dropdown" aria-label="Actions for @e.FullName">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" asp-action="Details" asp-route-id="@e.Id"><i class="bi bi-eye"></i> View profile</a></li>
+                                        @if (User.Can(Permissions.Employees.Manage))
+                                        {
+                                            <li><a class="dropdown-item" asp-action="Edit" asp-route-id="@e.Id"><i class="bi bi-pencil"></i> Edit</a></li>
+                                        }
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <partial name="_Pager" model='PagerModel.From(Model.Result, "employees")' />
+        }
+    </div>
+</div>

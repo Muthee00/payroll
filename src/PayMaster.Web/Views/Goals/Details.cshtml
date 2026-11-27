@@ -1,0 +1,106 @@
+@using PayMaster.Application.Performance
+@model GoalDetails
+@{
+    var g = Model.Goal;
+    ViewData["Title"] = g.Title;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Goals</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Goal</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <div class="d-flex align-items-center gap-2"><h1 class="page-title mb-0">@g.Title</h1><span class="status @Ui.StatusCss(g.Status)">@Ui.Humanize(g.Status)</span></div>
+        <p class="page-subtitle mt-1">@g.EmployeeName · @g.DepartmentName · @Ui.Humanize(g.Category) · @g.Priority priority</p>
+    </div>
+    <div class="page-actions">
+        @if (Model.CanEdit && g.Status is not (GoalStatus.Completed or GoalStatus.Cancelled))
+        {
+            <a asp-action="Edit" asp-route-id="@g.Id" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i> Edit</a>
+            <form method="post" asp-action="Cancel" asp-route-id="@g.Id" data-confirm="Cancel this goal?" data-confirm-button="Cancel goal" data-confirm-variant="danger">
+                <button class="btn btn-outline-secondary">Cancel goal</button>
+            </form>
+        }
+    </div>
+</div>
+
+<div class="row gap-row">
+    <div class="col-lg-7">
+        <div class="card-pm mb-4">
+            <div class="card-pm-body">
+                <div class="d-flex justify-content-between mb-2"><span class="fw-semibold">Progress</span><span class="fw-bold">@g.Progress%</span></div>
+                <div class="progress mb-3" style="height:12px;"><div class="progress-bar" style="width:@g.Progress%"></div></div>
+                <dl class="detail-list">
+                    <dt>Start</dt><dd>@Ui.Date(g.StartDate)</dd>
+                    <dt>Target</dt><dd>@Ui.Date(g.TargetDate)</dd>
+                    <dt>Manager</dt><dd>@(g.ManagerName ?? "—")</dd>
+                    @if (Model.CompletedAt is not null) { <dt>Completed</dt><dd>@Ui.DateTime(Model.CompletedAt)</dd> }
+                </dl>
+                @if (!string.IsNullOrWhiteSpace(Model.Description))
+                {
+                    <div class="breakdown-section">Description</div>
+                    <p class="mb-0" style="white-space: pre-line;">@Model.Description</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(Model.SuccessCriteria))
+                {
+                    <div class="breakdown-section">Success criteria</div>
+                    <p class="mb-0" style="white-space: pre-line;">@Model.SuccessCriteria</p>
+                }
+            </div>
+        </div>
+        <div class="card-pm">
+            <div class="card-pm-header"><h2 class="card-pm-title">Progress updates</h2></div>
+            <div class="card-pm-body">
+                @if (Model.Updates.Count == 0)
+                {
+                    <p class="text-muted mb-0">No updates yet.</p>
+                }
+                else
+                {
+                    <ul class="list-clean d-grid gap-3">
+                        @foreach (var u in Model.Updates)
+                        {
+                            <li class="d-flex gap-3">
+                                <span class="status status-info align-self-start">@u.Progress%</span>
+                                <div>
+                                    <div>@(u.Comment ?? "Progress updated")</div>
+                                    <div class="small text-muted">@(u.By ?? "—") · @Ui.DateTime(u.CreatedAt)
+                                        @if (u.HasEvidence) { <span> · <a asp-action="Evidence" asp-route-id="@g.Id" asp-route-updateId="@u.Id"><i class="bi bi-paperclip"></i> @u.EvidenceFileName</a></span> }
+                                    </div>
+                                </div>
+                            </li>
+                        }
+                    </ul>
+                }
+            </div>
+        </div>
+    </div>
+    @if (Model.CanUpdateProgress)
+    {
+        <div class="col-lg-5">
+            <div class="card-pm">
+                <div class="card-pm-header"><h2 class="card-pm-title">Update progress</h2></div>
+                <div class="card-pm-body">
+                    <form method="post" asp-action="Progress" asp-route-id="@g.Id" enctype="multipart/form-data" class="d-grid gap-3">
+                        <div>
+                            <label class="form-label" for="progress">Progress (%)</label>
+                            <input id="progress" name="Progress" type="number" min="0" max="100" step="5" value="@g.Progress" class="form-control" required />
+                        </div>
+                        <div>
+                            <label class="form-label" for="comment">Comment</label>
+                            <textarea id="comment" name="Comment" rows="3" class="form-control" maxlength="2000" placeholder="What changed since the last update?"></textarea>
+                        </div>
+                        <div>
+                            <label class="form-label" for="evidence">Supporting evidence (optional)</label>
+                            <input id="evidence" name="evidence" type="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.pptx" />
+                        </div>
+                        <button type="submit" class="btn btn-primary">Save update</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+</div>

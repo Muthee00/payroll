@@ -1,0 +1,59 @@
+@model PayMaster.Web.ViewModels.Payroll.PayrollValidationViewModel
+@{
+    var r = Model.Run;
+    ViewData["Title"] = $"Validate {r.Reference}";
+    var errors = Model.Issues.Count(i => i.Severity == "Error");
+    var warnings = Model.Issues.Count - errors;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Payroll</a></li>
+        <li class="breadcrumb-item"><a asp-action="Run" asp-route-id="@r.Id">@r.Reference</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Validation</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Payroll validation</h1>
+        <p class="page-subtitle">@r.PeriodName · @r.EmployeeCount employees checked for missing salaries, payment details and statutory numbers.</p>
+    </div>
+    <div class="page-actions">
+        <a asp-action="Run" asp-route-id="@r.Id" class="btn btn-outline-secondary">Back to payroll</a>
+        <form method="post" asp-action="Calculate" asp-route-id="@r.Id"><button class="btn btn-primary"><i class="bi bi-calculator me-1"></i> Run calculation</button></form>
+    </div>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="kpi-card @(errors > 0 ? "kpi-red" : "kpi-green")"><span class="kpi-icon"><i class="bi @(errors > 0 ? "bi-x-octagon" : "bi-check2-circle")"></i></span><div><div class="kpi-label">Blocking errors</div><div class="kpi-value">@errors</div></div></div></div>
+    <div class="col-md-4"><div class="kpi-card kpi-orange"><span class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></span><div><div class="kpi-label">Warnings</div><div class="kpi-value">@warnings</div></div></div></div>
+    <div class="col-md-4"><div class="kpi-card kpi-blue"><span class="kpi-icon"><i class="bi bi-people"></i></span><div><div class="kpi-label">Employees affected</div><div class="kpi-value">@Model.Issues.Select(i => i.EmployeeId).Distinct().Count()</div></div></div></div>
+</div>
+
+<div class="card-pm">
+    <div class="card-pm-body">
+        @if (Model.Issues.Count == 0)
+        {
+            <div class="empty-state"><span class="empty-icon"><i class="bi bi-check2-all"></i></span><h3>Everything looks good</h3><p>No missing information found. Run the calculation to continue.</p></div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-pm">
+                    <thead><tr><th>Employee</th><th>Severity</th><th>Issue</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var issue in Model.Issues.OrderBy(i => i.Severity).ThenBy(i => i.EmployeeName))
+                    {
+                        <tr>
+                            <td><span class="fw-semibold">@issue.EmployeeName</span><div class="person-meta">@issue.EmployeeNumber</div></td>
+                            <td><span class="status @(issue.Severity == "Error" ? "status-danger" : "status-warning")">@issue.Severity</span></td>
+                            <td class="text-wrap-cell">@issue.Message</td>
+                            <td class="text-end"><a asp-controller="Employees" asp-action="Details" asp-route-id="@issue.EmployeeId" class="btn btn-sm btn-outline-secondary">Fix</a></td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

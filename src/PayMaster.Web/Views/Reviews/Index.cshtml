@@ -1,0 +1,106 @@
+@model PayMaster.Web.ViewModels.Performance.ReviewsIndexViewModel
+@{
+    ViewData["Title"] = "Performance Reviews";
+    var q = Model.Query;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Performance" asp-action="Index">Performance</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Reviews</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Performance Reviews</h1>
+        <p class="page-subtitle">HR creates the cycle → manager evaluates → employee self-assesses → manager feedback → employee acknowledges → HR finalizes.</p>
+    </div>
+    @if (Model.CanManageCycles)
+    {
+        <div class="page-actions"><button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#cycleModal"><i class="bi bi-plus-lg me-1"></i> New review cycle</button></div>
+    }
+</div>
+
+@if (Model.Cycles.Count > 0)
+{
+    <div class="row g-3 mb-4">
+        @foreach (var c in Model.Cycles.Take(4))
+        {
+            var pct = c.ReviewCount == 0 ? 0 : (int)Math.Round(100.0 * c.FinalizedCount / c.ReviewCount);
+            <div class="col-md-6 col-xl-3">
+                <a asp-action="Index" asp-route-cycleId="@c.Id" class="card-pm d-block p-3 h-100 text-reset @(q.CycleId == c.Id ? "border-primary" : null)">
+                    <div class="d-flex justify-content-between"><span class="fw-semibold">@c.Name</span><span class="status @(c.Status == ReviewCycleStatus.Active ? "status-info" : "status-neutral")">@c.Status</span></div>
+                    <div class="small text-muted mb-2">@Ui.Humanize(c.ReviewType) · due @Ui.Date(c.DueDate)</div>
+                    <div class="progress"><div class="progress-bar bg-success" style="width:@pct%"></div></div>
+                    <div class="small text-muted mt-1">@c.FinalizedCount of @c.ReviewCount finalized</div>
+                </a>
+            </div>
+        }
+    </div>
+}
+
+<div class="card-pm">
+    <div class="card-pm-body">
+        <form method="get" asp-action="Index" class="row g-2 align-items-end mb-3">
+            <div class="col-md-3"><label class="form-label" for="search">Employee</label><div class="input-icon"><i class="bi bi-search"></i><input id="search" name="search" value="@q.Search" class="form-control" placeholder="Name or number" /></div></div>
+            <div class="col-md-3">
+                <label class="form-label" for="cycleId">Cycle</label>
+                <select id="cycleId" name="cycleId" class="form-select" data-autosubmit>
+                    <option value="">All cycles</option>
+                    @foreach (var c in Model.Cycles) { <option value="@c.Id" selected="@(q.CycleId == c.Id)">@c.Name</option> }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="status">Stage</label>
+                <select id="status" name="status" class="form-select" data-autosubmit>
+                    <option value="">All stages</option>
+                    @foreach (var s in Enum.GetValues<ReviewStatus>()) { <option value="@s" selected="@(q.Status == s)">@Ui.ReviewStage(s)</option> }
+                </select>
+            </div>
+            <div class="col-md-2">
+                <label class="form-label" for="departmentId">Department</label>
+                <select id="departmentId" name="departmentId" class="form-select" data-autosubmit>
+                    <option value="">All</option>
+                    @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(q.DepartmentId == d.Id)">@d.Name</option> }
+                </select>
+            </div>
+            <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button></div>
+        </form>
+        @if (Model.Reviews.Items.Count == 0)
+        {
+            <div class="empty-state"><span class="empty-icon"><i class="bi bi-clipboard-check"></i></span><h3>No reviews</h3><p>@(Model.CanManageCycles ? "Create a review cycle to start reviews for a department or the whole company." : "Your reviews will appear here when HR starts a review cycle.")</p></div>
+        }
+        else
+        {
+            <partial name="_ReviewRows" model="Model.Reviews.Items" />
+            <partial name="_Pager" model='PagerModel.From(Model.Reviews, "reviews")' />
+        }
+    </div>
+</div>
+
+@if (Model.CanManageCycles)
+{
+    <div class="modal fade" id="cycleModal" tabindex="-1" aria-labelledby="cycleTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form class="modal-content" method="post" asp-action="CreateCycle">
+                <div class="modal-header"><h2 class="modal-title fs-5" id="cycleTitle">New review cycle</h2><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button></div>
+                <div class="modal-body row g-3">
+                    <div class="col-12"><label class="form-label" for="cName">Name</label><input id="cName" name="Name" class="form-control" required placeholder="Q4 2026 Quarterly Review" /></div>
+                    <div class="col-md-6"><label class="form-label" for="cType">Type</label><select id="cType" name="ReviewType" class="form-select" asp-items="Html.GetEnumSelectList<ReviewType>()"></select></div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="cDept">Employees</label>
+                        <select id="cDept" name="DepartmentId" class="form-select">
+                            <option value="">Whole company</option>
+                            @foreach (var d in Model.Departments) { <option value="@d.Id">@d.Name</option> }
+                        </select>
+                    </div>
+                    <div class="col-md-4"><label class="form-label" for="cStart">Period start</label><input id="cStart" name="PeriodStart" type="date" class="form-control" required /></div>
+                    <div class="col-md-4"><label class="form-label" for="cEnd">Period end</label><input id="cEnd" name="PeriodEnd" type="date" class="form-control" required /></div>
+                    <div class="col-md-4"><label class="form-label" for="cDue">Due date</label><input id="cDue" name="DueDate" type="date" class="form-control" required /></div>
+                    <div class="col-12"><div class="alert alert-light border small mb-0">A review is created for every active employee in scope, assigned to their reporting manager (or department head). Reviewers are notified.</div></div>
+                </div>
+                <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button><button class="btn btn-primary" type="submit">Create cycle</button></div>
+            </form>
+        </div>
+    </div>
+}

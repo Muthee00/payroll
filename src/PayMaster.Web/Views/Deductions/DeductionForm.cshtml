@@ -1,0 +1,89 @@
+@model PayMaster.Web.ViewModels.Salary.RecurringDeductionFormViewModel
+@{
+    var isCreate = Model.Id is null;
+    ViewData["Title"] = isCreate ? "Add recurring deduction" : "Edit deduction";
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Deductions</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@(isCreate ? "Add" : "Edit")</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">@ViewData["Title"]</h1>
+        <p class="page-subtitle">Applied in every payroll from the start date. With a total amount set, the deduction stops automatically once fully recovered.</p>
+    </div>
+</div>
+<div class="row">
+    <div class="col-lg-7">
+        <div class="card-pm">
+            <form method="post" asp-action="@(isCreate ? "CreateDeduction" : "EditDeduction")" asp-route-id="@Model.Id" novalidate>
+                <div class="card-pm-body row g-3">
+                    <div class="col-12" asp-validation-summary="ModelOnly"></div>
+                    <div class="col-12">
+                        <label asp-for="Input.EmployeeId" class="form-label">Employee *</label>
+                        <select asp-for="Input.EmployeeId" class="form-select" disabled="@(!isCreate)">
+                            <option value="0">Select employee…</option>
+                            @foreach (var e in Model.Employees)
+                            {
+                                <option value="@e.Id">@e.Name</option>
+                            }
+                        </select>
+                        @if (!isCreate)
+                        {
+                            <input type="hidden" asp-for="Input.EmployeeId" />
+                        }
+                        <span asp-validation-for="Input.EmployeeId" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.SalaryComponentId" class="form-label">Deduction type *</label>
+                        <select asp-for="Input.SalaryComponentId" class="form-select">
+                            <option value="0">Select type…</option>
+                            @foreach (var c in Model.DeductionTypes)
+                            {
+                                <option value="@c.Id">@c.Name (@Ui.Humanize(c.TaxTreatment))</option>
+                            }
+                        </select>
+                        <span asp-validation-for="Input.SalaryComponentId" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.Reference" class="form-label">Reference</label>
+                        <input asp-for="Input.Reference" class="form-control" placeholder="Loan or policy number" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.MonthlyAmount" class="form-label">Monthly amount (KES) *</label>
+                        <input asp-for="Input.MonthlyAmount" type="number" step="0.01" min="0" class="form-control" />
+                        <span asp-validation-for="Input.MonthlyAmount" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.TotalAmount" class="form-label">Total to recover (KES)</label>
+                        <input asp-for="Input.TotalAmount" type="number" step="0.01" min="0" class="form-control" placeholder="Leave blank if ongoing" />
+                        <span asp-validation-for="Input.TotalAmount" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.AmountRecovered" class="form-label">Already recovered</label>
+                        <input asp-for="Input.AmountRecovered" type="number" step="0.01" min="0" class="form-control" readonly="@(!isCreate)" />
+                        <div class="form-text">@(isCreate ? "For balances carried over from a previous system." : "Updated automatically by finalized payrolls.")</div>
+                        <span asp-validation-for="Input.AmountRecovered" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.StartDate" class="form-label">Start date *</label>
+                        <input asp-for="Input.StartDate" type="date" class="form-control" />
+                        <span asp-validation-for="Input.StartDate" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.EndDate" class="form-label">End date</label>
+                        <input asp-for="Input.EndDate" type="date" class="form-control" />
+                        <span asp-validation-for="Input.EndDate" class="field-validation-error"></span>
+                    </div>
+                </div>
+                <div class="card-pm-footer d-flex justify-content-end gap-2">
+                    <a asp-action="Index" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">@(isCreate ? "Add deduction" : "Save changes")</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

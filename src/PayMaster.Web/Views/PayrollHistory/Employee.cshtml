@@ -1,0 +1,52 @@
+@model PayMaster.Web.ViewModels.Payroll.EmployeePayrollHistoryViewModel
+@{
+    var e = Model.Employee;
+    ViewData["Title"] = $"Payroll history — {e.FullName}";
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Employees" asp-action="Details" asp-route-id="@e.Id">@e.EmployeeNumber</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Payroll history</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">@e.FullName — payroll history</h1>
+        <p class="page-subtitle">@(e.JobTitle ?? "—") · @e.DepartmentName · @Model.Rows.Count payroll record(s)</p>
+    </div>
+</div>
+<div class="card-pm">
+    <div class="card-pm-body">
+        @if (Model.Rows.Count == 0)
+        {
+            <div class="empty-state"><span class="empty-icon"><i class="bi bi-clock-history"></i></span><h3>No payroll yet</h3></div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-pm">
+                    <thead><tr><th>Period</th><th>Run</th><th class="text-end">Gross</th><th class="text-end">PAYE</th><th class="text-end">SHIF</th><th class="text-end">Housing Levy</th><th class="text-end">NSSF</th><th class="text-end">Other</th><th class="text-end">Net Pay</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var r in Model.Rows)
+                    {
+                        <tr>
+                            <td class="fw-semibold">@r.PeriodName</td>
+                            <td><a asp-controller="Payroll" asp-action="Run" asp-route-id="@r.RunId">@r.Reference</a></td>
+                            <td class="text-end money">@Ui.Number(r.GrossEarnings, 2)</td>
+                            <td class="text-end money">@Ui.Number(r.Paye, 2)</td>
+                            <td class="text-end money">@Ui.Number(r.Sha, 2)</td>
+                            <td class="text-end money">@Ui.Number(r.HousingLevy, 2)</td>
+                            <td class="text-end money">@Ui.Number(r.Nssf, 2)</td>
+                            <td class="text-end money">@Ui.Number(r.OtherDeductions, 2)</td>
+                            <td class="text-end money fw-semibold">@Ui.Number(r.NetPay, 2)</td>
+                            <td><span class="status @Ui.StatusCss(r.RunStatus)">@Ui.StatusLabel(r.RunStatus)</span></td>
+                            <td class="text-end">@if (r.PayslipId is int pid) { <a asp-controller="Payslips" asp-action="Pdf" asp-route-id="@pid" class="btn btn-light btn-icon btn-sm border-0" title="Payslip PDF"><i class="bi bi-file-earmark-pdf"></i></a> }</td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

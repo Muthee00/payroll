@@ -1,0 +1,84 @@
+@model PayMaster.Web.ViewModels.Statutory.StatutoryIndexViewModel
+@{
+    ViewData["Title"] = "Statutory Settings";
+    var canManage = User.Can(Permissions.Statutory.Manage);
+    var c = Model.Current;
+    string Status(StatutoryConfigurationStatus s) => s switch
+    {
+        StatutoryConfigurationStatus.Active => "status-success",
+        StatutoryConfigurationStatus.Draft => "status-warning",
+        _ => "status-neutral"
+    };
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Statutory Settings</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Statutory Settings</h1>
+        <p class="page-subtitle">Kenyan PAYE, SHIF, Affordable Housing Levy and NSSF rules. Every change is a new version with an effective date; payroll keeps the exact version it used.</p>
+    </div>
+    @if (canManage && Model.Versions.All(v => v.Status != StatutoryConfigurationStatus.Draft))
+    {
+        <div class="page-actions">
+            <form method="post" asp-action="CreateDraft">
+                <button class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New version</button>
+            </form>
+        </div>
+    }
+</div>
+
+<div class="alert alert-warning d-flex gap-2 small">
+    <i class="bi bi-shield-exclamation"></i>
+    <span>Statutory rates change through Finance Acts and regulator notices. Confirm every version against current KRA, SHA, NSSF and Housing Fund guidance before activating it for production payroll.</span>
+</div>
+
+@if (c is not null)
+{
+    <div class="row g-3 mb-4">
+        @{
+            decimal? Rate(StatutoryRateKey key) => c.Rates.FirstOrDefault(r => r.Info.Key == key)?.StoredValue;
+        }
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-blue"><span class="kpi-icon"><i class="bi bi-percent"></i></span><div><div class="kpi-label">PAYE</div><div class="kpi-value fs-5">@c.Bands.Count bands</div><div class="kpi-trend trend-flat">@Ui.Percent(c.Bands.First().Rate, 0) – @Ui.Percent(c.Bands.Last().Rate, 1) · relief @Ui.MoneyShort(Rate(StatutoryRateKey.PersonalRelief) ?? 0)</div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-green"><span class="kpi-icon"><i class="bi bi-heart-pulse"></i></span><div><div class="kpi-label">SHIF</div><div class="kpi-value fs-5">@Ui.Percent(Rate(StatutoryRateKey.ShaEmployeeRate) ?? 0, 2)</div><div class="kpi-trend trend-flat">Minimum @Ui.MoneyShort(Rate(StatutoryRateKey.ShaMinimumContribution) ?? 0)</div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-orange"><span class="kpi-icon"><i class="bi bi-house"></i></span><div><div class="kpi-label">Housing Levy</div><div class="kpi-value fs-5">@Ui.Percent(Rate(StatutoryRateKey.HousingLevyEmployeeRate) ?? 0) + @Ui.Percent(Rate(StatutoryRateKey.HousingLevyEmployerRate) ?? 0)</div><div class="kpi-trend trend-flat">Employee + employer</div></div></div></div>
+        <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-purple"><span class="kpi-icon"><i class="bi bi-piggy-bank"></i></span><div><div class="kpi-label">NSSF</div><div class="kpi-value fs-5">@Ui.Percent(Rate(StatutoryRateKey.NssfEmployeeRate) ?? 0, 0) + @Ui.Percent(Rate(StatutoryRateKey.NssfEmployerRate) ?? 0, 0)</div><div class="kpi-trend trend-flat">LEL @Ui.MoneyShort(Rate(StatutoryRateKey.NssfLowerEarningsLimit) ?? 0) · UEL @Ui.MoneyShort(Rate(StatutoryRateKey.NssfUpperEarningsLimit) ?? 0)</div></div></div></div>
+    </div>
+}
+
+<div class="card-pm">
+    <div class="card-pm-header"><h2 class="card-pm-title">Versions</h2></div>
+    <div class="card-pm-body">
+        @if (Model.Versions.Count == 0)
+        {
+            <div class="empty-state"><span class="empty-icon"><i class="bi bi-bank"></i></span><h3>No statutory configuration</h3><p>Payroll cannot be calculated until a version is active.</p></div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-pm">
+                    <thead><tr><th>Version</th><th>Name</th><th>Effective from</th><th>Effective to</th><th class="text-end">Payroll runs</th><th>Status</th></tr></thead>
+                    <tbody>
+                    @foreach (var v in Model.Versions)
+                    {
+                        <tr data-href="@Url.Action("Details", new { id = v.Id })" style="cursor:pointer;">
+                            <td class="fw-semibold">v@(v.Version)</td>
+                            <td><a asp-action="Details" asp-route-id="@v.Id" class="row-link">@v.Name</a></td>
+                            <td>@Ui.Date(v.EffectiveFrom)</td>
+                            <td>@(v.EffectiveTo is null ? "Open" : Ui.Date(v.EffectiveTo))</td>
+                            <td class="text-end">@v.PayrollRunCount</td>
+                            <td>
+                                <span class="status @Status(v.Status)">@v.Status</span>
+                                @if (v.IsLocked) { <i class="bi bi-lock-fill text-muted ms-1" title="Locked: used by finalized payroll"></i> }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+        }
+    </div>
+</div>

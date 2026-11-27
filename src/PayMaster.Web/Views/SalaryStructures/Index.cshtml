@@ -1,0 +1,230 @@
+@model PayMaster.Web.ViewModels.Salary.SalaryStructuresIndexViewModel
+@{
+    ViewData["Title"] = "Salary Structures";
+    var canManage = User.Can(Permissions.Salary.ManageStructures);
+    var canApprove = User.Can(Permissions.Salary.Approve);
+    string Tab(string name) => Model.Tab == name ? "active" : "";
+    string StatusCss(SalaryStructureStatus s) => s switch
+    {
+        SalaryStructureStatus.Active => "status-success",
+        SalaryStructureStatus.Draft => "status-warning",
+        _ => "status-neutral"
+    };
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Salary Structures</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Salary Structures</h1>
+        <p class="page-subtitle">Reusable pay templates, salary grades and salary changes awaiting approval.</p>
+    </div>
+    <div class="page-actions">
+        @if (canManage)
+        {
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New structure</a>
+        }
+    </div>
+</div>
+
+<ul class="nav nav-tabs-pm mb-4">
+    <li class="nav-item"><a class="nav-link @Tab("structures")" asp-action="Index" asp-route-tab="structures">Structures <span class="badge text-bg-light">@Model.Structures.Count</span></a></li>
+    <li class="nav-item"><a class="nav-link @Tab("grades")" asp-action="Index" asp-route-tab="grades">Grades &amp; bands</a></li>
+    @if (Model.CanSeeApprovals)
+    {
+        <li class="nav-item">
+            <a class="nav-link @Tab("approvals")" asp-action="Index" asp-route-tab="approvals">
+                Pending approvals @if (Model.Pending.Count > 0) { <span class="badge text-bg-warning">@Model.Pending.Count</span> }
+            </a>
+        </li>
+    }
+</ul>
+
+@if (Model.Tab == "grades")
+{
+    <div class="row gap-row">
+        <div class="@(canManage ? "col-lg-8" : "col-12")">
+            <div class="card-pm">
+                <div class="card-pm-body">
+                    @if (Model.Grades.Count == 0)
+                    {
+                        <div class="empty-state"><span class="empty-icon"><i class="bi bi-bar-chart-steps"></i></span><h3>No grades yet</h3><p>Grades define the permitted basic salary band for a role.</p></div>
+                    }
+                    else
+                    {
+                        <div class="table-wrap">
+                            <table class="table table-pm">
+                                <thead><tr><th>Code</th><th>Grade</th><th class="text-end">Minimum</th><th class="text-end">Maximum</th><th class="text-end">Structures</th><th></th></tr></thead>
+                                <tbody>
+                                @foreach (var g in Model.Grades)
+                                {
+                                    <tr>
+                                        <td class="fw-semibold">@g.Code</td>
+                                        <td>@g.Name<div class="person-meta">@g.Description</div></td>
+                                        <td class="text-end money">@Ui.MoneyShort(g.MinimumSalary)</td>
+                                        <td class="text-end money">@Ui.MoneyShort(g.MaximumSalary)</td>
+                                        <td class="text-end">@g.StructureCount</td>
+                                        <td class="text-end">
+                                            @if (canManage)
+                                            {
+                                                <button class="btn btn-light btn-icon btn-sm border-0" type="button" data-bs-toggle="collapse" data-bs-target="#grade-@g.Id" aria-label="Edit @g.Name"><i class="bi bi-pencil"></i></button>
+                                            }
+                                        </td>
+                                    </tr>
+                                    @if (canManage)
+                                    {
+                                        <tr class="collapse" id="grade-@g.Id">
+                                            <td colspan="6" class="bg-light">
+                                                <form method="post" asp-action="SaveGrade" asp-route-id="@g.Id" class="row g-2 align-items-end">
+                                                    <div class="col-md-2"><label class="form-label">Code</label><input name="Code" value="@g.Code" class="form-control form-control-sm" required /></div>
+                                                    <div class="col-md-3"><label class="form-label">Name</label><input name="Name" value="@g.Name" class="form-control form-control-sm" required /></div>
+                                                    <div class="col-md-2"><label class="form-label">Minimum</label><input name="MinimumSalary" type="number" step="0.01" value="@g.MinimumSalary" class="form-control form-control-sm" required /></div>
+                                                    <div class="col-md-2"><label class="form-label">Maximum</label><input name="MaximumSalary" type="number" step="0.01" value="@g.MaximumSalary" class="form-control form-control-sm" required /></div>
+                                                    <input type="hidden" name="Description" value="@g.Description" />
+                                                    <div class="col-md-3"><button class="btn btn-primary btn-sm w-100" type="submit">Save grade</button></div>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                </tbody>
+                            </table>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+        @if (canManage)
+        {
+            <div class="col-lg-4">
+                <div class="card-pm">
+                    <div class="card-pm-header"><h2 class="card-pm-title">Add grade</h2></div>
+                    <div class="card-pm-body">
+                        <form method="post" asp-action="SaveGrade" class="d-grid gap-3">
+                            <div><label class="form-label" for="gCode">Code</label><input id="gCode" name="Code" class="form-control" maxlength="20" placeholder="G8" required /></div>
+                            <div><label class="form-label" for="gName">Name</label><input id="gName" name="Name" class="form-control" maxlength="100" placeholder="Grade 8 - Director" required /></div>
+                            <div class="row g-2">
+                                <div class="col"><label class="form-label" for="gMin">Minimum (KES)</label><input id="gMin" name="MinimumSalary" type="number" step="0.01" min="0" class="form-control" required /></div>
+                                <div class="col"><label class="form-label" for="gMax">Maximum (KES)</label><input id="gMax" name="MaximumSalary" type="number" step="0.01" min="0" class="form-control" required /></div>
+                            </div>
+                            <div><label class="form-label" for="gDesc">Description</label><input id="gDesc" name="Description" class="form-control" maxlength="500" /></div>
+                            <button type="submit" class="btn btn-primary">Add grade</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+else if (Model.Tab == "approvals" && Model.CanSeeApprovals)
+{
+    <div class="card-pm">
+        <div class="card-pm-header">
+            <div>
+                <h2 class="card-pm-title">Salary changes awaiting approval</h2>
+                <p class="card-pm-subtitle">Approval must be given by someone other than the person who proposed the change.</p>
+            </div>
+        </div>
+        <div class="card-pm-body">
+            @if (Model.Pending.Count == 0)
+            {
+                <div class="empty-state"><span class="empty-icon"><i class="bi bi-check2-circle"></i></span><h3>Nothing to approve</h3><p>New salary changes and starting salaries appear here.</p></div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>Employee</th><th class="text-end">Current gross</th><th class="text-end">New basic</th><th class="text-end">New gross</th><th class="text-end">Change</th><th>Effective</th><th>Reason</th><th>Requested by</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var p in Model.Pending)
+                        {
+                            var ownRequest = p.RequestedById == int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+                            <tr>
+                                <td>
+                                    <a asp-controller="Employees" asp-action="Details" asp-route-id="@p.EmployeeId" class="row-link">@p.EmployeeName</a>
+                                    <div class="person-meta">@p.EmployeeNumber · @p.DepartmentName</div>
+                                </td>
+                                <td class="text-end money">@(p.CurrentGross is decimal cg ? Ui.MoneyShort(cg) : "New hire")</td>
+                                <td class="text-end money">@Ui.MoneyShort(p.NewBasic)</td>
+                                <td class="text-end money fw-semibold">@Ui.MoneyShort(p.NewGross)</td>
+                                <td class="text-end">
+                                    @if (p.ChangePercent is decimal pct)
+                                    {
+                                        <span class="@(pct >= 0 ? "trend-up" : "trend-down") fw-semibold">@(pct >= 0 ? "+" : "")@pct%</span>
+                                    }
+                                    else { <text>—</text> }
+                                </td>
+                                <td>@Ui.Date(p.EffectiveFrom)</td>
+                                <td class="text-wrap-cell">@p.Reason @if (p.StructureName is not null) { <div class="person-meta">Structure: @p.StructureName</div> }</td>
+                                <td>@(p.RequestedBy ?? "System")<div class="person-meta">@Ui.Date(p.RequestedAt)</div></td>
+                                <td class="text-end">
+                                    @if (canApprove && !ownRequest)
+                                    {
+                                        <div class="d-flex gap-1 justify-content-end">
+                                            <form method="post" asp-action="Approve" asp-route-id="@p.Id"
+                                                  data-confirm="Approve @p.EmployeeName's salary of @Ui.MoneyShort(p.NewBasic) basic from @Ui.Date(p.EffectiveFrom)?" data-confirm-button="Approve" data-confirm-variant="success">
+                                                <button type="submit" class="btn btn-sm btn-success">Approve</button>
+                                            </form>
+                                            <form method="post" asp-action="Reject" asp-route-id="@p.Id"
+                                                  data-confirm="Reject this salary change?" data-confirm-button="Reject" data-confirm-variant="danger" data-confirm-reason="true">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary">Reject</button>
+                                            </form>
+                                        </div>
+                                    }
+                                    else if (ownRequest)
+                                    {
+                                        <span class="small text-muted">Awaiting another approver</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="card-pm">
+        <div class="card-pm-body">
+            @if (Model.Structures.Count == 0)
+            {
+                <div class="empty-state">
+                    <span class="empty-icon"><i class="bi bi-diagram-3"></i></span>
+                    <h3>No salary structures</h3>
+                    <p>Create a structure such as "Software Engineer" with basic pay and standard allowances.</p>
+                </div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>Structure</th><th>Grade</th><th>Department</th><th class="text-end">Basic</th><th class="text-end">Gross</th><th class="text-end">Allowances</th><th class="text-end">Employees</th><th>Effective</th><th>Status</th></tr></thead>
+                        <tbody>
+                        @foreach (var s in Model.Structures)
+                        {
+                            <tr data-href="@Url.Action("Details", new { id = s.Id })" style="cursor:pointer;">
+                                <td><a asp-action="Details" asp-route-id="@s.Id" class="row-link">@s.Name</a><div class="person-meta">@s.Code@(s.PositionTitle is null ? "" : $" · {s.PositionTitle}")</div></td>
+                                <td>@(s.GradeName ?? "—")</td>
+                                <td>@(s.DepartmentName ?? "All")</td>
+                                <td class="text-end money">@Ui.MoneyShort(s.BasicSalary)</td>
+                                <td class="text-end money fw-semibold">@Ui.MoneyShort(s.GrossSalary)</td>
+                                <td class="text-end">@s.ComponentCount</td>
+                                <td class="text-end">@s.EmployeeCount</td>
+                                <td>@Ui.Date(s.EffectiveFrom)</td>
+                                <td><span class="status @StatusCss(s.Status)">@s.Status</span></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}

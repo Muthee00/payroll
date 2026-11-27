@@ -1,0 +1,143 @@
+@model PayMaster.Web.ViewModels.Statutory.StatutoryDetailsViewModel
+@{
+    var d = Model.Details;
+    ViewData["Title"] = $"v{d.Version} · {d.Name}";
+    var canManage = User.Can(Permissions.Statutory.Manage);
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Statutory Settings</a></li>
+        <li class="breadcrumb-item active" aria-current="page">v@(d.Version)</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h1 class="page-title mb-0">@d.Name</h1>
+            <span class="status @(d.Status == StatutoryConfigurationStatus.Active ? "status-success" : d.Status == StatutoryConfigurationStatus.Draft ? "status-warning" : "status-neutral")">@d.Status</span>
+            @if (d.IsLocked) { <span class="status status-neutral"><i class="bi bi-lock-fill"></i> Locked</span> }
+        </div>
+        <p class="page-subtitle mt-1">Version @d.Version · effective @Ui.Date(d.EffectiveFrom)@(d.EffectiveTo is null ? "" : $" to {Ui.Date(d.EffectiveTo)}") · used by @d.PayrollRunCount payroll run(s)</p>
+    </div>
+    <div class="page-actions">
+        @if (canManage && d.IsEditable)
+        {
+            <form method="post" asp-action="Delete" asp-route-id="@d.Id" data-confirm="Delete this draft version?" data-confirm-button="Delete" data-confirm-variant="danger">
+                <button class="btn btn-outline-secondary"><i class="bi bi-trash me-1"></i> Delete draft</button>
+            </form>
+            <a asp-action="Edit" asp-route-id="@d.Id" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i> Edit</a>
+            <form method="post" asp-action="Activate" asp-route-id="@d.Id"
+                  data-confirm="Activate version @d.Version from @Ui.Date(d.EffectiveFrom)? The current version will end the day before. Confirm the values against official KRA, SHA, NSSF and Housing Fund guidance first."
+                  data-confirm-title="Activate statutory rules" data-confirm-button="Activate">
+                <button class="btn btn-primary" disabled="@(d.ValidationProblems.Count > 0)"><i class="bi bi-check2-circle me-1"></i> Activate</button>
+            </form>
+        }
+        else if (canManage)
+        {
+            <form method="post" asp-action="CreateDraft" asp-route-sourceId="@d.Id">
+                <button class="btn btn-outline-secondary"><i class="bi bi-copy me-1"></i> New version from this</button>
+            </form>
+        }
+    </div>
+</div>
+
+@if (d.ValidationProblems.Count > 0)
+{
+    <div class="alert alert-danger">
+        <strong>This version cannot be used yet:</strong>
+        <ul class="mb-0 mt-1">@foreach (var problem in d.ValidationProblems) { <li>@problem</li> }</ul>
+    </div>
+}
+
+<div class="row gap-row">
+    <div class="col-xl-7">
+        <div class="card-pm mb-4">
+            <div class="card-pm-header"><h2 class="card-pm-title">PAYE monthly tax bands</h2></div>
+            <div class="card-pm-body">
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>Band</th><th class="text-end">From (KES)</th><th class="text-end">To (KES)</th><th class="text-end">Rate</th></tr></thead>
+                        <tbody>
+                        @for (var i = 0; i < d.Bands.Count; i++)
+                        {
+                            <tr>
+                                <td>@(i + 1)</td>
+                                <td class="text-end money">@Ui.Number(d.Bands[i].LowerBound, 2)</td>
+                                <td class="text-end money">@(d.Bands[i].UpperBound is decimal u ? Ui.Number(u, 2) : "and above")</td>
+                                <td class="text-end fw-semibold">@((d.Bands[i].Rate * 100m).ToString("0.##"))%</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        @foreach (var group in d.Rates.GroupBy(r => r.Info.Group))
+        {
+            <div class="card-pm mb-4">
+                <div class="card-pm-header"><h2 class="card-pm-title">@group.Key</h2></div>
+                <div class="card-pm-body">
+                    <table class="w-100 breakdown-table">
+                        @foreach (var rate in group)
+                        {
+                            <tr>
+                                <td>@rate.Info.Label<div class="small text-muted">@rate.Info.Help@(string.IsNullOrWhiteSpace(rate.Notes) ? "" : $" — {rate.Notes}")</div></td>
+                                <td class="text-end align-top fw-semibold"><partial name="_RateValue" model="rate" /></td>
+                            </tr>
+                        }
+                    </table>
+                </div>
+            </div>
+        }
+
+        @if (!string.IsNullOrWhiteSpace(d.LegalReference))
+        {
+            <div class="card-pm">
+                <div class="card-pm-header"><h2 class="card-pm-title">Legal references</h2></div>
+                <div class="card-pm-body small text-muted">@d.LegalReference</div>
+            </div>
+        }
+    </div>
+
+    <div class="col-xl-5">
+        <div class="card-pm" style="position: sticky; top: 80px;">
+            <div class="card-pm-header">
+                <div>
+                    <h2 class="card-pm-title">Sample calculation</h2>
+                    <p class="card-pm-subtitle">Check this version's rules against a known payslip.</p>
+                </div>
+            </div>
+            <div class="card-pm-body">
+                <form method="get" asp-action="Details" asp-route-id="@d.Id" class="d-flex gap-2 mb-3">
+                    <div class="input-group">
+                        <span class="input-group-text">KSh</span>
+                        <input name="previewGross" type="number" step="0.01" min="0" value="@Model.PreviewGross" class="form-control" aria-label="Gross monthly salary" />
+                    </div>
+                    <button class="btn btn-primary" type="submit">Calculate</button>
+                </form>
+                @if (Model.Preview is { } p)
+                {
+                    @foreach (var grp in p.Steps.Where(s => s.Section is "NSSF" or "SHIF" or "Housing Levy" or "PAYE" or "Summary").GroupBy(s => s.Section))
+                    {
+                        <div class="breakdown-section">@grp.Key</div>
+                        <table class="w-100 breakdown-table">
+                            @foreach (var step in grp)
+                            {
+                                <tr>
+                                    <td>@step.Label<div class="small text-muted">@step.Detail</div></td>
+                                    <td class="text-end money align-top">@(step.Amount < 0 ? "−" + Ui.Number(-step.Amount, 2) : Ui.Number(step.Amount, 2))</td>
+                                </tr>
+                            }
+                        </table>
+                    }
+                }
+                else
+                {
+                    <p class="text-muted mb-0">Fix the problems above to preview a calculation.</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>

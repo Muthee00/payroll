@@ -1,0 +1,87 @@
+@using PayMaster.Application.Common.Models
+@using PayMaster.Application.Payroll
+@model PagedResult<PayrollLineListItem>
+@{
+    var full = ViewData["Full"] as bool? ?? false;
+    var canRemove = ViewData["CanRemove"] as bool? ?? false;
+    var runId = ViewData["RunId"] as int?;
+}
+<div class="table-wrap">
+    <table class="table table-pm">
+        <thead>
+        <tr>
+            <th>Employee</th>
+            <th>Department</th>
+            @if (full) { <th class="text-end">Basic</th> }
+            <th class="text-end">Gross Pay</th>
+            @if (full)
+            {
+                <th class="text-end">PAYE</th>
+                <th class="text-end">SHIF</th>
+                <th class="text-end">Housing Levy</th>
+                <th class="text-end">NSSF</th>
+                <th class="text-end">Other</th>
+            }
+            <th class="text-end">Deductions</th>
+            <th class="text-end">Net Pay</th>
+            <th>Status</th>
+            <th class="text-end"><span class="visually-hidden">Actions</span></th>
+        </tr>
+        </thead>
+        <tbody>
+        @foreach (var l in Model.Items)
+        {
+            var lineUrl = Url.Action("Line", "Payroll", new { runId, lineId = l.Id });
+            <tr style="cursor:pointer;" data-line-url="@lineUrl">
+                <td>
+                    <div class="person">
+                        <span class="avatar @Ui.AvatarClass(l.EmployeeNumber)">@Ui.Initials(l.EmployeeName)</span>
+                        <div>
+                            <div class="person-name">@l.EmployeeName</div>
+                            <div class="person-meta">@l.EmployeeNumber · @(l.JobTitle ?? "—")@(l.DaysPayable < l.DaysInPeriod ? $" · {l.DaysPayable}/{l.DaysInPeriod} days" : "")</div>
+                        </div>
+                    </div>
+                </td>
+                <td>@l.DepartmentName</td>
+                @if (full) { <td class="text-end money">@Ui.Number(l.BasicSalary)</td> }
+                <td class="text-end money">@Ui.MoneyShort(l.GrossEarnings)</td>
+                @if (full)
+                {
+                    <td class="text-end money">@Ui.Number(l.Paye, 2)</td>
+                    <td class="text-end money">@Ui.Number(l.Sha, 2)</td>
+                    <td class="text-end money">@Ui.Number(l.HousingLevy, 2)</td>
+                    <td class="text-end money">@Ui.Number(l.Nssf, 2)</td>
+                    <td class="text-end money">@Ui.Number(l.OtherDeductions, 2)</td>
+                }
+                <td class="text-end money">@Ui.MoneyShort(l.TotalDeductions)</td>
+                <td class="text-end money fw-semibold">@Ui.MoneyShort(l.NetPay)</td>
+                <td>
+                    <span class="status @Ui.StatusCss(l.Status)" title="@(l.Errors ?? l.Warnings)">@(l.Status == PayrollLineStatus.Calculated ? "Processed" : Ui.Humanize(l.Status))</span>
+                    @if (l.Warnings is not null && l.Status != PayrollLineStatus.Error)
+                    {
+                        <i class="bi bi-exclamation-triangle text-warning ms-1" title="@l.Warnings"></i>
+                    }
+                </td>
+                <td class="text-end">
+                    <div class="dropdown">
+                        <button class="btn btn-light btn-icon btn-sm border-0" type="button" data-bs-toggle="dropdown" aria-label="Actions for @l.EmployeeName"><i class="bi bi-three-dots-vertical"></i></button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><button type="button" class="dropdown-item" data-line-url="@lineUrl"><i class="bi bi-calculator"></i> View breakdown</button></li>
+                            <li><a class="dropdown-item" asp-controller="Employees" asp-action="Details" asp-route-id="@l.EmployeeId"><i class="bi bi-person"></i> Employee profile</a></li>
+                            @if (canRemove)
+                            {
+                                <li>
+                                    <form method="post" asp-controller="Payroll" asp-action="RemoveEmployee" asp-route-id="@runId" asp-route-lineId="@l.Id"
+                                          data-confirm="Remove @l.EmployeeName from this payroll? You can pay them in a separate run." data-confirm-button="Remove" data-confirm-variant="danger">
+                                        <button class="dropdown-item text-danger"><i class="bi bi-person-dash text-danger"></i> Remove from run</button>
+                                    </form>
+                                </li>
+                            }
+                        </ul>
+                    </div>
+                </td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

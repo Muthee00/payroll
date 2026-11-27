@@ -1,0 +1,250 @@
+@model PayMaster.Web.ViewModels.Payroll.PayrollRunViewModel
+@{
+    var d = Model.Details;
+    var r = d.Summary;
+    ViewData["Title"] = $"{r.Reference} · {r.PeriodName}";
+    ViewData["RunId"] = r.Id;
+    ViewData["Full"] = true;
+    ViewData["CanRemove"] = r.Status == PayrollRunStatus.Draft && User.Can(Permissions.Payroll.Process);
+    var me = int.Parse(User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+    var preparedByMe = me == d.SubmittedById || me == d.CalculatedById;
+    var steps = new[] { PayrollRunStatus.Draft, PayrollRunStatus.PendingApproval, PayrollRunStatus.Approved, PayrollRunStatus.Finalized, PayrollRunStatus.Paid };
+    var currentStep = r.Status == PayrollRunStatus.Calculating ? 0 : Array.IndexOf(steps, r.Status);
+    var calculated = r.CalculatedAt is not null;
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index" asp-route-period="@($"{r.Year:D4}-{r.Month:D2}")">Payroll</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@r.Reference</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div>
+        <div class="d-flex flex-wrap align-items-center gap-2">
+            <h1 class="page-title mb-0">@r.PeriodName payroll</h1>
+            <span class="status @Ui.StatusCss(r.Status)">@Ui.StatusLabel(r.Status)</span>
+            @if (r.RunType == PayrollRunType.Correction)
+            {
+                <span class="status status-purple">Correction of @d.OriginalRunReference</span>
+            }
+        </div>
+        <p class="page-subtitle mt-1">@r.Reference · @Ui.Humanize(r.Scope)@(r.DepartmentName is null ? "" : $" ({r.DepartmentName})") · @Ui.Date(d.PeriodStart) – @Ui.Date(d.PeriodEnd) · pay date @Ui.Date(d.PaymentDate)</p>
+    </div>
+    <div class="page-actions">
+        @if (calculated && User.Can(Permissions.Payroll.Export))
+        {
+            <a asp-action="Export" asp-route-id="@r.Id" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-spreadsheet me-1"></i> Export</a>
+        }
+        @if (d.PayslipCount > 0 && User.Can(Permissions.Payslips.ViewAll))
+        {
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown" type="button"><i class="bi bi-receipt me-1"></i> Payslips</button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" asp-action="Payslips" asp-route-id="@r.Id"><i class="bi bi-printer"></i> Download all (PDF)</a></li>
+                    <li><a class="dropdown-item" asp-controller="Payslips" asp-action="Index" asp-route-search="@r.Reference"><i class="bi bi-list-ul"></i> View payslips</a></li>
+                    @if (User.Can(Permissions.Payslips.Generate))
+                    {
+                        <li>
+                            <form method="post" asp-action="EmailPayslips" asp-route-id="@r.Id" data-confirm="Email @d.PayslipCount payslips to employees?" data-confirm-button="Send emails">
+                                <button class="dropdown-item"><i class="bi bi-envelope"></i> Email to employees</button>
+                            </form>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+
+        @* Workflow actions *@
+        @if (r.Status == PayrollRunStatus.Draft && User.Can(Permissions.Payroll.Process))
+        {
+            <a asp-action="Validate" asp-route-id="@r.Id" class="btn btn-outline-secondary"><i class="bi bi-clipboard-check me-1"></i> Validate</a>
+            <form method="post" asp-action="Calculate" asp-route-id="@r.Id">
+                <button class="btn @(calculated ? "btn-outline-secondary" : "btn-primary")"><i class="bi bi-calculator me-1"></i> @(calculated ? "Recalculate" : "Run calculation")</button>
+            </form>
+            @if (calculated)
+            {
+                <form method="post" asp-action="Submit" asp-route-id="@r.Id" data-confirm="Submit @r.Reference (net pay @Ui.MoneyShort(r.TotalNetPay)) for approval?" data-confirm-button="Submit for approval">
+                    <button class="btn btn-primary" disabled="@(r.ErrorCount > 0)"><i class="bi bi-send me-1"></i> Submit for approval</button>
+                </form>
+            }
+        }
+        @if (r.Status == PayrollRunStatus.PendingApproval)
+        {
+            @if (User.Can(Permissions.Payroll.Process))
+            {
+                <form method="post" asp-action="Calculate" asp-route-id="@r.Id" data-confirm="Recalculating returns the payroll to draft and requires resubmission." data-confirm-button="Recalculate">
+                    <button class="btn btn-outline-secondary"><i class="bi bi-arrow-repeat me-1"></i> Recalculate</button>
+                </form>
+            }
+            @if (User.Can(Permissions.Payroll.Approve))
+            {
+                <form method="post" asp-action="Reject" asp-route-id="@r.Id" data-confirm="Return this payroll to draft?" data-confirm-button="Reject" data-confirm-variant="danger" data-confirm-reason="true">
+                    <button class="btn btn-outline-secondary">Reject</button>
+                </form>
+                <form method="post" asp-action="Approve" asp-route-id="@r.Id" data-confirm="Approve net pay of @Ui.MoneyShort(r.TotalNetPay) for @r.EmployeeCount employees?" data-confirm-button="Approve payroll" data-confirm-variant="success">
+                    <button class="btn btn-success" disabled="@(d.RequireSeparateApprover && preparedByMe)" title="@(d.RequireSeparateApprover && preparedByMe ? "You prepared this payroll; another approver is required." : null)"><i class="bi bi-check2-circle me-1"></i> Approve</button>
+                </form>
+            }
+        }
+        @if (r.Status == PayrollRunStatus.Approved && User.Can(Permissions.Payroll.Finalize))
+        {
+            <form method="post" asp-action="Finalize" asp-route-id="@r.Id"
+                  data-confirm="Finalizing locks this payroll permanently, issues payslips and records loan recoveries. It can only be undone by a formal reversal." data-confirm-title="Finalize payroll?" data-confirm-button="Finalize">
+                <button class="btn btn-primary"><i class="bi bi-lock me-1"></i> Finalize</button>
+            </form>
+        }
+        @if (r.Status == PayrollRunStatus.Finalized && User.Can(Permissions.Payroll.MarkPaid))
+        {
+            <form method="post" asp-action="MarkPaid" asp-route-id="@r.Id" data-confirm="Confirm that net pay has been paid to employees?" data-confirm-button="Mark as paid" data-confirm-variant="success">
+                <button class="btn btn-success"><i class="bi bi-cash me-1"></i> Mark as paid</button>
+            </form>
+        }
+        @if (r.Status is PayrollRunStatus.Draft or PayrollRunStatus.PendingApproval or PayrollRunStatus.Approved
+             || (r.Status is PayrollRunStatus.Finalized or PayrollRunStatus.Paid && User.Can(Permissions.Payroll.Reverse)))
+        {
+            <div class="dropdown">
+                <button class="btn btn-light btn-icon border" data-bs-toggle="dropdown" type="button" aria-label="More actions"><i class="bi bi-three-dots"></i></button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    @if (r.Status is PayrollRunStatus.Draft or PayrollRunStatus.PendingApproval or PayrollRunStatus.Approved && User.Can(Permissions.Payroll.Process))
+                    {
+                        <li>
+                            <form method="post" asp-action="Cancel" asp-route-id="@r.Id" data-confirm="Cancel @r.Reference? Its employees can then be included in a new payroll." data-confirm-button="Cancel payroll" data-confirm-variant="danger" data-confirm-reason="true">
+                                <button class="dropdown-item text-danger"><i class="bi bi-x-circle text-danger"></i> Cancel payroll</button>
+                            </form>
+                        </li>
+                    }
+                    @if (r.Status is PayrollRunStatus.Finalized or PayrollRunStatus.Paid && User.Can(Permissions.Payroll.Reverse))
+                    {
+                        <li>
+                            <form method="post" asp-action="Reverse" asp-route-id="@r.Id" asp-route-createCorrection="true"
+                                  data-confirm="Reverse this finalized payroll and open a correction run? Loan recoveries are undone; the original remains in history." data-confirm-title="Reverse payroll" data-confirm-button="Reverse &amp; correct" data-confirm-variant="danger" data-confirm-reason="true">
+                                <button class="dropdown-item text-danger"><i class="bi bi-arrow-counterclockwise text-danger"></i> Reverse &amp; create correction</button>
+                            </form>
+                        </li>
+                    }
+                </ul>
+            </div>
+        }
+    </div>
+</div>
+
+@if (r.Status == PayrollRunStatus.Calculating)
+{
+    <div class="alert alert-info d-flex align-items-center gap-2" data-auto-refresh="5">
+        <span class="spinner-border spinner-border-sm"></span> Calculating @r.EmployeeCount employees in the background. This page refreshes automatically.
+    </div>
+}
+@if (!string.IsNullOrWhiteSpace(d.StatusReason))
+{
+    <div class="alert @(r.Status is PayrollRunStatus.Cancelled or PayrollRunStatus.Reversed ? "alert-secondary" : "alert-warning") d-flex gap-2"><i class="bi bi-info-circle"></i> @d.StatusReason</div>
+}
+@if (r.ErrorCount > 0)
+{
+    <div class="alert alert-danger d-flex gap-2"><i class="bi bi-x-octagon"></i>
+        <span><strong>@r.ErrorCount employee(s) have errors</strong> and must be fixed (or removed) before submission. <a asp-action="Run" asp-route-id="@r.Id" asp-route-status="Error">Show errors</a></span></div>
+}
+
+@if (r.Status is not (PayrollRunStatus.Cancelled or PayrollRunStatus.Reversed))
+{
+    <div class="card-pm mb-4">
+        <div class="card-pm-body">
+            <ol class="list-clean d-flex flex-wrap gap-3 mb-0">
+                @for (var i = 0; i < steps.Length; i++)
+                {
+                    var done = i < currentStep || (i == currentStep && r.Status == PayrollRunStatus.Paid);
+                    var active = i == currentStep && !done;
+                    <li class="d-flex align-items-center gap-2 small @(active ? "fw-semibold text-primary" : done ? "text-success" : "text-muted")">
+                        <i class="bi @(done ? "bi-check-circle-fill" : active ? "bi-record-circle" : "bi-circle")"></i>
+                        @Ui.StatusLabel(steps[i])
+                        @if (i < steps.Length - 1) { <i class="bi bi-chevron-right text-muted ms-2"></i> }
+                    </li>
+                }
+            </ol>
+        </div>
+    </div>
+}
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-blue"><span class="kpi-icon"><i class="bi bi-people"></i></span><div><div class="kpi-label">Employees</div><div class="kpi-value">@r.EmployeeCount</div><div class="kpi-trend @(r.ErrorCount > 0 ? "trend-down" : "trend-flat")">@r.ErrorCount errors · @d.WarningCount warnings</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-green"><span class="kpi-icon"><i class="bi bi-cash-coin"></i></span><div><div class="kpi-label">Total Gross Salary</div><div class="kpi-value">@Ui.MoneyShort(r.TotalGross)</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-red"><span class="kpi-icon"><i class="bi bi-currency-exchange"></i></span><div><div class="kpi-label">Total Deductions</div><div class="kpi-value">@Ui.MoneyShort(r.TotalDeductions)</div><div class="kpi-trend trend-flat">PAYE @Ui.MoneyShort(r.TotalPaye)</div></div></div></div>
+    <div class="col-sm-6 col-xl-3"><div class="kpi-card kpi-purple"><span class="kpi-icon"><i class="bi bi-wallet2"></i></span><div><div class="kpi-label">Total Net Salary</div><div class="kpi-value">@Ui.MoneyShort(r.TotalNetPay)</div><div class="kpi-trend trend-flat">Employer cost +@Ui.MoneyShort(r.TotalEmployerContributions)</div></div></div></div>
+</div>
+
+<div class="row gap-row">
+    <div class="col-xxl-9">
+        <div class="card-pm">
+            <div class="card-pm-header">
+                <div>
+                    <h2 class="card-pm-title">Employee payroll</h2>
+                    <p class="card-pm-subtitle">Click an employee to see exactly how each figure was calculated.</p>
+                </div>
+                <form method="get" asp-action="Run" asp-route-id="@r.Id" class="d-flex gap-2">
+                    <div class="input-icon"><i class="bi bi-search"></i><input name="search" value="@Model.LineQuery.Search" class="form-control form-control-sm" placeholder="Name, number, department" /></div>
+                    <select name="status" class="form-select form-select-sm" data-autosubmit aria-label="Filter by status">
+                        <option value="">All</option>
+                        <option value="Calculated" selected="@(Model.LineQuery.Status == PayrollLineStatus.Calculated)">Processed</option>
+                        <option value="Error" selected="@(Model.LineQuery.Status == PayrollLineStatus.Error)">Errors</option>
+                        <option value="Pending" selected="@(Model.LineQuery.Status == PayrollLineStatus.Pending)">Not calculated</option>
+                    </select>
+                </form>
+            </div>
+            <div class="card-pm-body">
+                @if (d.Lines.Items.Count == 0)
+                {
+                    <p class="text-muted mb-0">No employees match.</p>
+                }
+                else
+                {
+                    <partial name="_LinesTable" model="d.Lines" />
+                    <partial name="_Pager" model='PagerModel.From(d.Lines, "employees")' />
+                }
+            </div>
+        </div>
+    </div>
+    <div class="col-xxl-3">
+        <div class="card-pm mb-4">
+            <div class="card-pm-header"><h2 class="card-pm-title">Statutory totals</h2></div>
+            <div class="card-pm-body">
+                <table class="w-100 breakdown-table">
+                    <tr><td>PAYE</td><td class="text-end money">@Ui.Money(r.TotalPaye)</td></tr>
+                    <tr><td>SHIF</td><td class="text-end money">@Ui.Money(r.TotalSha)</td></tr>
+                    <tr><td>Housing Levy (employee)</td><td class="text-end money">@Ui.Money(r.TotalHousingLevy)</td></tr>
+                    <tr><td>NSSF (employee)</td><td class="text-end money">@Ui.Money(r.TotalNssf)</td></tr>
+                    <tr><td>Other deductions</td><td class="text-end money">@Ui.Money(r.TotalDeductions - r.TotalPaye - r.TotalSha - r.TotalHousingLevy - r.TotalNssf)</td></tr>
+                    <tr class="total"><td>Employer contributions</td><td class="text-end money">@Ui.Money(r.TotalEmployerContributions)</td></tr>
+                </table>
+            </div>
+        </div>
+        <div class="card-pm">
+            <div class="card-pm-header"><h2 class="card-pm-title">Audit trail</h2></div>
+            <div class="card-pm-body">
+                <dl class="detail-list small">
+                    <dt>Created</dt><dd>@Ui.DateTime(r.CreatedAt)</dd>
+                    <dt>Calculated</dt><dd>@Ui.DateTime(r.CalculatedAt)<div class="text-muted">@r.ProcessedBy</div></dd>
+                    <dt>Submitted</dt><dd>@Ui.DateTime(d.SubmittedAt)<div class="text-muted">@d.SubmittedBy</div></dd>
+                    <dt>Approved</dt><dd>@Ui.DateTime(r.ApprovedAt)<div class="text-muted">@r.ApprovedBy</div></dd>
+                    <dt>Finalized</dt><dd>@Ui.DateTime(r.FinalizedAt)<div class="text-muted">@d.FinalizedBy</div></dd>
+                    <dt>Paid</dt><dd>@Ui.DateTime(d.PaidAt)</dd>
+                    <dt>Statutory rules</dt>
+                    <dd>
+                        @if (d.StatutoryConfigurationId is int cid)
+                        {
+                            <a asp-controller="Statutory" asp-action="Details" asp-route-id="@cid">@d.StatutoryVersionName</a>
+                        }
+                        else { <text>Applied at calculation</text> }
+                    </dd>
+                </dl>
+                @if (!string.IsNullOrWhiteSpace(d.Notes))
+                {
+                    <p class="small text-muted mt-3 mb-0"><i class="bi bi-sticky me-1"></i>@d.Notes</p>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+<partial name="_LineDrawer" />

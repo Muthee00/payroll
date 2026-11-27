@@ -1,0 +1,215 @@
+@model PayMaster.Web.ViewModels.Performance.GoalsIndexViewModel
+@{
+    ViewData["Title"] = "Goals & KPIs";
+    string Tab(string name) => Model.Tab == name ? "active" : "";
+    var q = Model.Query;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-controller="Performance" asp-action="Index">Performance</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Goals &amp; KPIs</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Goals &amp; KPIs</h1>
+        <p class="page-subtitle">Set goals, track progress and configure the KPIs and rating scale used in reviews.</p>
+    </div>
+    <div class="page-actions">
+        @if (Model.Tab == "goals" && Model.CanCreate)
+        {
+            <a asp-action="Create" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New goal</a>
+        }
+        @if (Model.Tab == "kpis" && Model.CanConfigure)
+        {
+            <a asp-action="Kpi" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New KPI</a>
+        }
+        @if (Model.Tab == "development" && Model.CanCreate)
+        {
+            <a asp-action="Plan" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New plan</a>
+        }
+    </div>
+</div>
+
+<ul class="nav nav-tabs-pm mb-4">
+    <li class="nav-item"><a class="nav-link @Tab("goals")" asp-action="Index" asp-route-tab="goals">Goals</a></li>
+    <li class="nav-item"><a class="nav-link @Tab("development")" asp-action="Index" asp-route-tab="development">Development</a></li>
+    @if (Model.CanCreate)
+    {
+        <li class="nav-item"><a class="nav-link @Tab("kpis")" asp-action="Index" asp-route-tab="kpis">KPIs</a></li>
+    }
+    @if (Model.CanConfigure)
+    {
+        <li class="nav-item"><a class="nav-link @Tab("scale")" asp-action="Index" asp-route-tab="scale">Rating scale</a></li>
+    }
+</ul>
+
+@if (Model.Tab == "goals" && Model.Goals is { } goals)
+{
+    <div class="card-pm">
+        <div class="card-pm-body">
+            <form method="get" asp-action="Index" class="row g-2 align-items-end mb-3">
+                <div class="col-md-5"><label class="form-label" for="search">Search</label><div class="input-icon"><i class="bi bi-search"></i><input id="search" name="search" value="@q.Search" class="form-control" placeholder="Goal or employee" /></div></div>
+                <div class="col-md-3">
+                    <label class="form-label" for="departmentId">Department</label>
+                    <select id="departmentId" name="departmentId" class="form-select" data-autosubmit>
+                        <option value="">All departments</option>
+                        @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(q.DepartmentId == d.Id)">@d.Name</option> }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="status">Status</label>
+                    <select id="status" name="status" class="form-select" data-autosubmit>
+                        <option value="">All</option>
+                        @foreach (var s in Enum.GetValues<GoalStatus>()) { <option value="@s" selected="@(q.Status == s)">@Ui.Humanize(s)</option> }
+                    </select>
+                </div>
+                <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button></div>
+            </form>
+            @if (goals.Items.Count == 0)
+            {
+                <div class="empty-state"><span class="empty-icon"><i class="bi bi-bullseye"></i></span><h3>No goals found</h3><p>Goals set by managers or HR appear here.</p></div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>Goal</th><th>Employee</th><th>Priority</th><th style="min-width:160px;">Progress</th><th>Target date</th><th>Status</th></tr></thead>
+                        <tbody>
+                        @foreach (var g in goals.Items)
+                        {
+                            <tr data-href="@Url.Action("Details", new { id = g.Id })" style="cursor:pointer;">
+                                <td class="text-wrap-cell"><a asp-action="Details" asp-route-id="@g.Id" class="row-link">@g.Title</a><div class="person-meta">@Ui.Humanize(g.Category)</div></td>
+                                <td>@g.EmployeeName<div class="person-meta">@g.DepartmentName</div></td>
+                                <td><span class="status @(g.Priority >= GoalPriority.High ? "status-danger" : g.Priority == GoalPriority.Medium ? "status-warning" : "status-neutral")">@g.Priority</span></td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1"><div class="progress-bar" style="width:@g.Progress%"></div></div>
+                                        <span class="small text-muted">@g.Progress%</span>
+                                    </div>
+                                </td>
+                                <td>@Ui.Date(g.TargetDate)</td>
+                                <td><span class="status @Ui.StatusCss(g.Status)">@Ui.Humanize(g.Status)</span></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <partial name="_Pager" model='PagerModel.From(goals, "goals")' />
+            }
+        </div>
+    </div>
+}
+else if (Model.Tab == "kpis")
+{
+    <div class="card-pm">
+        <div class="card-pm-body">
+            @if (Model.Kpis.Count == 0)
+            {
+                <div class="empty-state"><span class="empty-icon"><i class="bi bi-speedometer2"></i></span><h3>No KPIs yet</h3><p>KPIs are scored in performance reviews. Scope them to a department or job title.</p></div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>KPI</th><th>Applies to</th><th class="text-end">Target</th><th class="text-end">Weight</th><th>Scoring</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var k in Model.Kpis)
+                        {
+                            <tr class="@(k.IsActive ? "" : "opacity-50")">
+                                <td class="text-wrap-cell fw-semibold">@k.Name<div class="person-meta fw-normal">@k.Description</div></td>
+                                <td>@(k.DepartmentName ?? "All departments")@(k.PositionTitle is null ? "" : $" · {k.PositionTitle}")</td>
+                                <td class="text-end">@Ui.Number(k.TargetValue, k.TargetValue % 1 == 0 ? 0 : 2) @k.MeasurementUnit</td>
+                                <td class="text-end">@k.Weight.ToString("0.##")</td>
+                                <td>@Ui.Humanize(k.ScoringMethod)</td>
+                                <td>@(k.IsActive ? "Active" : "Inactive")</td>
+                                <td class="text-end">
+                                    @if (Model.CanConfigure)
+                                    {
+                                        <div class="d-flex gap-1 justify-content-end">
+                                            <a asp-action="Kpi" asp-route-id="@k.Id" class="btn btn-light btn-icon btn-sm border-0" aria-label="Edit"><i class="bi bi-pencil"></i></a>
+                                            <form method="post" asp-action="ToggleKpi" asp-route-id="@k.Id" asp-route-active="@(!k.IsActive)">
+                                                <button class="btn btn-light btn-icon btn-sm border-0" aria-label="Toggle"><i class="bi @(k.IsActive ? "bi-toggle-on text-success" : "bi-toggle-off")"></i></button>
+                                            </form>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+            <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Scoring: 100% of target scores 3 (Meets Expectations); scores scale linearly and are capped between 1 and 5. Lower-is-better KPIs invert the ratio.</p>
+        </div>
+    </div>
+}
+else if (Model.Tab == "scale")
+{
+    <div class="row">
+        <div class="col-xl-8">
+            <div class="card-pm">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Rating scale</h2><p class="card-pm-subtitle">Weighted review scores map to these ratings. Ranges must cover 1 to 5 in order.</p></div></div>
+                <form method="post" asp-action="RatingScale">
+                    <div class="card-pm-body">
+                        <table class="table table-pm">
+                            <thead><tr><th>Score</th><th>Label</th><th>Description</th><th>From</th><th>To</th></tr></thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.RatingScale.Count; i++)
+                            {
+                                var l = Model.RatingScale[i];
+                                <tr>
+                                    <td class="fw-semibold"><span class="legend-swatch d-inline-block me-2" style="background:@l.Color"></span>@l.Value<input type="hidden" name="levels[@i].Value" value="@l.Value" /></td>
+                                    <td><input name="levels[@i].Label" value="@l.Label" class="form-control form-control-sm" required maxlength="60" /></td>
+                                    <td><input name="levels[@i].Description" value="@l.Description" class="form-control form-control-sm" maxlength="500" /></td>
+                                    <td><input name="levels[@i].MinScore" value="@l.MinScore.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" type="number" step="0.0001" min="0" max="5" class="form-control form-control-sm" /></td>
+                                    <td><input name="levels[@i].MaxScore" value="@l.MaxScore.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)" type="number" step="0.0001" min="0" max="5" class="form-control form-control-sm" /></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-pm-footer text-end"><button type="submit" class="btn btn-primary">Save rating scale</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="card-pm">
+        <div class="card-pm-body">
+            @if (Model.Plans.Count == 0)
+            {
+                <div class="empty-state"><span class="empty-icon"><i class="bi bi-mortarboard"></i></span><h3>No development plans</h3><p>Training recommendations, improvement plans and career objectives appear here.</p></div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>Plan</th><th>Employee</th><th>Type</th><th>Target</th><th style="min-width:200px;">Progress</th><th>Status</th></tr></thead>
+                        <tbody>
+                        @foreach (var p in Model.Plans)
+                        {
+                            <tr>
+                                <td class="text-wrap-cell fw-semibold">@p.Title<div class="person-meta fw-normal">@p.Skills</div></td>
+                                <td>@p.EmployeeName</td>
+                                <td>@Ui.Humanize(p.Type)</td>
+                                <td>@Ui.Date(p.TargetDate)</td>
+                                <td>
+                                    <form method="post" asp-action="PlanProgress" asp-route-id="@p.Id" class="d-flex gap-2 align-items-center" data-no-busy>
+                                        <input type="range" name="progress" min="0" max="100" step="10" value="@p.Progress" class="form-range" aria-label="Progress" disabled="@(p.Status == DevelopmentPlanStatus.Completed)" />
+                                        <button class="btn btn-sm btn-outline-secondary" type="submit" disabled="@(p.Status == DevelopmentPlanStatus.Completed)">@p.Progress%</button>
+                                    </form>
+                                </td>
+                                <td><span class="status @(p.Status == DevelopmentPlanStatus.Completed ? "status-success" : p.Status == DevelopmentPlanStatus.InProgress ? "status-info" : "status-neutral")">@Ui.Humanize(p.Status)</span></td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}

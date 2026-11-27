@@ -1,0 +1,24 @@
+@using PayMaster.Web.Controllers
+@{
+    var toasts = new[]
+    {
+        (Key: AppController.ToastSuccessKey, Css: "toast-success", Icon: "bi-check-circle-fill text-success"),
+        (Key: AppController.ToastWarningKey, Css: "toast-warning", Icon: "bi-exclamation-triangle-fill text-warning"),
+        (Key: AppController.ToastErrorKey, Css: "toast-error", Icon: "bi-x-circle-fill text-danger")
+    };
+}
+<div class="toast-stack" aria-live="polite">
+    @foreach (var toast in toasts)
+    {
+        if (TempData[toast.Key] is string message)
+        {
+            <div class="toast toast-pm @toast.Css" role="status">
+                <div class="toast-body d-flex gap-2 align-items-start">
+                    <i class="bi @toast.Icon mt-1"></i>
+                    <span class="flex-grow-1">@message</span>
+                    <button type="button" class="btn-close btn-sm" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
+            </div>
+        }
+    }
+</div>

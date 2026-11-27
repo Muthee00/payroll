@@ -1,0 +1,47 @@
+@using PayMaster.Application.Notifications
+@model (int Unread, IReadOnlyList<NotificationDto> Latest)
+<div class="dropdown">
+    <button class="icon-button" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+            aria-label="Notifications@(Model.Unread > 0 ? $", {Model.Unread} unread" : "")">
+        <i class="bi bi-bell"></i>
+        @if (Model.Unread > 0)
+        {
+            <span class="dot">@(Model.Unread > 9 ? "9+" : Model.Unread)</span>
+        }
+    </button>
+    <div class="dropdown-menu dropdown-menu-end p-0" style="width: 340px;">
+        <div class="d-flex align-items-center justify-content-between px-3 py-2 border-bottom">
+            <strong>Notifications</strong>
+            @if (Model.Unread > 0)
+            {
+                <form method="post" asp-controller="Notifications" asp-action="MarkAllRead" data-no-busy>
+                    <button type="submit" class="btn btn-link btn-sm p-0">Mark all read</button>
+                </form>
+            }
+        </div>
+        @if (Model.Latest.Count == 0)
+        {
+            <div class="px-3 py-4 text-center text-muted small">You're all caught up.</div>
+        }
+        else
+        {
+            <div class="list-group list-group-flush">
+                @foreach (var n in Model.Latest)
+                {
+                    <form method="post" asp-controller="Notifications" asp-action="Open" asp-route-id="@n.Id" data-no-busy>
+                        <button type="submit" class="list-group-item list-group-item-action border-0 px-3 py-2 text-start @(n.IsRead ? "" : "bg-light")">
+                            <div class="d-flex justify-content-between gap-2">
+                                <span class="fw-semibold small">@n.Title</span>
+                                <span class="text-muted" style="font-size:.7rem;">@Ui.DateTime(n.CreatedAt)</span>
+                            </div>
+                            <div class="small text-muted text-truncate">@n.Message</div>
+                        </button>
+                    </form>
+                }
+            </div>
+        }
+        <div class="border-top px-3 py-2 text-center">
+            <a asp-controller="Notifications" asp-action="Index" class="small fw-semibold">View all notifications</a>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,289 @@
+@model PayMaster.Web.ViewModels.Employees.EmployeeFormViewModel
+@{
+    var title = Model.IsCreate ? "Add employee" : $"Edit {Model.Input.FirstName} {Model.Input.LastName}";
+    ViewData["Title"] = title;
+    var canSeeBank = User.Can(Permissions.Employees.ViewBankDetails);
+}
+
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Employees</a></li>
+        @if (!Model.IsCreate)
+        {
+            <li class="breadcrumb-item"><a asp-action="Details" asp-route-id="@Model.Id">@Model.EmployeeNumber</a></li>
+        }
+        <li class="breadcrumb-item active" aria-current="page">@(Model.IsCreate ? "Add" : "Edit")</li>
+    </ol>
+</nav>
+
+<div class="page-header">
+    <div>
+        <h1 class="page-title">@title</h1>
+        <p class="page-subtitle">
+            @(Model.IsCreate
+                ? "An employee number is assigned automatically. Fields marked * are required."
+                : $"Employee number {Model.EmployeeNumber}. Changes to department or job title are recorded in employment history.")
+        </p>
+    </div>
+</div>
+
+<form method="post" asp-action="@(Model.IsCreate ? "Create" : "Edit")" asp-route-id="@Model.Id" novalidate>
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    <input type="hidden" asp-for="Input.KeepExistingBankAccount" />
+
+    <div class="row gap-row">
+        <div class="col-xl-8">
+            <section class="card-pm mb-4">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Personal information</h2></div></div>
+                <div class="card-pm-body row g-3">
+                    <div class="col-md-4">
+                        <label asp-for="Input.FirstName" class="form-label">First name *</label>
+                        <input asp-for="Input.FirstName" class="form-control" autocomplete="off" />
+                        <span asp-validation-for="Input.FirstName" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.MiddleName" class="form-label">Middle name</label>
+                        <input asp-for="Input.MiddleName" class="form-control" autocomplete="off" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.LastName" class="form-label">Last name *</label>
+                        <input asp-for="Input.LastName" class="form-control" autocomplete="off" />
+                        <span asp-validation-for="Input.LastName" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.Gender" class="form-label">Gender *</label>
+                        <select asp-for="Input.Gender" asp-items="Html.GetEnumSelectList<Gender>()" class="form-select"></select>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.DateOfBirth" class="form-label">Date of birth *</label>
+                        <input asp-for="Input.DateOfBirth" type="date" class="form-control" />
+                        <span asp-validation-for="Input.DateOfBirth" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.NationalId" class="form-label">National ID *</label>
+                        <input asp-for="Input.NationalId" class="form-control" inputmode="numeric" />
+                        <span asp-validation-for="Input.NationalId" class="field-validation-error"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card-pm mb-4">
+                <div class="card-pm-header">
+                    <div>
+                        <h2 class="card-pm-title">Statutory &amp; tax</h2>
+                        <p class="card-pm-subtitle">Used for PAYE, SHIF and NSSF returns.</p>
+                    </div>
+                </div>
+                <div class="card-pm-body row g-3">
+                    <div class="col-md-4">
+                        <label asp-for="Input.KraPin" class="form-label">KRA PIN</label>
+                        <input asp-for="Input.KraPin" class="form-control text-uppercase" placeholder="A123456789Z" maxlength="11" />
+                        <span asp-validation-for="Input.KraPin" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.NssfNumber" class="form-label">NSSF number</label>
+                        <input asp-for="Input.NssfNumber" class="form-control" inputmode="numeric" />
+                        <span asp-validation-for="Input.NssfNumber" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.ShaNumber" class="form-label">SHA number</label>
+                        <input asp-for="Input.ShaNumber" class="form-control" />
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-check form-switch mt-2">
+                            <input asp-for="Input.HasDisabilityExemption" class="form-check-input" role="switch" />
+                            <label asp-for="Input.HasDisabilityExemption" class="form-check-label">Holds a KRA disability exemption certificate</label>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.DisabilityExemptionCertificateNumber" class="form-label">Exemption certificate no.</label>
+                        <input asp-for="Input.DisabilityExemptionCertificateNumber" class="form-control" />
+                        <span asp-validation-for="Input.DisabilityExemptionCertificateNumber" class="field-validation-error"></span>
+                    </div>
+                </div>
+            </section>
+
+            <section class="card-pm mb-4">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Contact details</h2></div></div>
+                <div class="card-pm-body row g-3">
+                    <div class="col-md-6">
+                        <label asp-for="Input.WorkEmail" class="form-label">Work email</label>
+                        <input asp-for="Input.WorkEmail" type="email" class="form-control" />
+                        <span asp-validation-for="Input.WorkEmail" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.PersonalEmail" class="form-label">Personal email</label>
+                        <input asp-for="Input.PersonalEmail" type="email" class="form-control" />
+                        <span asp-validation-for="Input.PersonalEmail" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.PhoneNumber" class="form-label">Phone number</label>
+                        <input asp-for="Input.PhoneNumber" type="tel" class="form-control" placeholder="+254 7xx xxx xxx" />
+                        <span asp-validation-for="Input.PhoneNumber" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-md-6">
+                        <label asp-for="Input.PhysicalAddress" class="form-label">Physical address</label>
+                        <input asp-for="Input.PhysicalAddress" class="form-control" />
+                    </div>
+                    <div class="col-12"><div class="small-caps mt-2">Emergency contact</div></div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.EmergencyContactName" class="form-label">Name</label>
+                        <input asp-for="Input.EmergencyContactName" class="form-control" />
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.EmergencyContactRelationship" class="form-label">Relationship</label>
+                        <input asp-for="Input.EmergencyContactRelationship" class="form-control" list="relationships" />
+                        <datalist id="relationships"><option value="Spouse"></option><option value="Parent"></option><option value="Sibling"></option><option value="Child"></option><option value="Friend"></option></datalist>
+                    </div>
+                    <div class="col-md-4">
+                        <label asp-for="Input.EmergencyContactPhone" class="form-label">Phone</label>
+                        <input asp-for="Input.EmergencyContactPhone" type="tel" class="form-control" />
+                        <span asp-validation-for="Input.EmergencyContactPhone" class="field-validation-error"></span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <div class="col-xl-4">
+            <section class="card-pm mb-4">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Employment</h2></div></div>
+                <div class="card-pm-body row g-3">
+                    <div class="col-12">
+                        <label asp-for="Input.DepartmentId" class="form-label">Department *</label>
+                        <select asp-for="Input.DepartmentId" class="form-select" id="departmentSelect">
+                            <option value="0">Select department…</option>
+                            @foreach (var d in Model.Lookups.Departments)
+                            {
+                                <option value="@d.Id">@d.Name</option>
+                            }
+                        </select>
+                        <span asp-validation-for="Input.DepartmentId" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.PositionId" class="form-label">Job title</label>
+                        <select asp-for="Input.PositionId" class="form-select" data-filter-parent="#departmentSelect">
+                            <option value="">Select job title…</option>
+                            @foreach (var p in Model.Lookups.Positions)
+                            {
+                                <option value="@p.Id" data-parent="@p.Extra">@p.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.ManagerId" class="form-label">Reporting manager</label>
+                        <select asp-for="Input.ManagerId" class="form-select">
+                            <option value="">No manager</option>
+                            @foreach (var m in Model.Lookups.Managers.Where(m => m.Id != Model.Id))
+                            {
+                                <option value="@m.Id">@m.Name@(m.Extra is null ? "" : $" — {m.Extra}")</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-sm-6 col-xl-12">
+                        <label asp-for="Input.EmploymentType" class="form-label">Employment type *</label>
+                        <select asp-for="Input.EmploymentType" asp-items="Html.GetEnumSelectList<EmploymentType>()" class="form-select"></select>
+                    </div>
+                    <div class="col-sm-6 col-xl-12">
+                        <label asp-for="Input.EmploymentDate" class="form-label">Employment date *</label>
+                        <input asp-for="Input.EmploymentDate" type="date" class="form-control" />
+                        <span asp-validation-for="Input.EmploymentDate" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-sm-6 col-xl-12">
+                        <label asp-for="Input.ContractEndDate" class="form-label">Contract end date</label>
+                        <input asp-for="Input.ContractEndDate" type="date" class="form-control" />
+                        <div class="form-text">Required for contract employees.</div>
+                        <span asp-validation-for="Input.ContractEndDate" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-sm-6 col-xl-12">
+                        <label asp-for="Input.WorkLocation" class="form-label">Work location</label>
+                        <input asp-for="Input.WorkLocation" class="form-control" placeholder="Nairobi HQ" />
+                    </div>
+                </div>
+            </section>
+
+            <section class="card-pm mb-4">
+                <div class="card-pm-header"><div><h2 class="card-pm-title">Payment details</h2></div></div>
+                <div class="card-pm-body row g-3">
+                    <div class="col-12">
+                        <label asp-for="Input.PaymentMethod" class="form-label">Payment method *</label>
+                        <select asp-for="Input.PaymentMethod" asp-items="Html.GetEnumSelectList<PaymentMethod>()" class="form-select"></select>
+                    </div>
+                    <div class="col-sm-6 col-xl-12">
+                        <label asp-for="Input.BankName" class="form-label">Bank</label>
+                        <input asp-for="Input.BankName" class="form-control" list="banks" />
+                        <datalist id="banks">
+                            <option value="Equity Bank"></option><option value="KCB Bank"></option><option value="Co-operative Bank"></option>
+                            <option value="NCBA Bank"></option><option value="Stanbic Bank"></option><option value="Absa Bank Kenya"></option>
+                            <option value="I&amp;M Bank"></option><option value="Standard Chartered"></option><option value="Family Bank"></option>
+                            <option value="Diamond Trust Bank"></option>
+                        </datalist>
+                        <span asp-validation-for="Input.BankName" class="field-validation-error"></span>
+                    </div>
+                    <div class="col-sm-6 col-xl-12">
+                        <label asp-for="Input.BankBranch" class="form-label">Branch</label>
+                        <input asp-for="Input.BankBranch" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.BankAccountNumber" class="form-label">Account number</label>
+                        @if (!Model.IsCreate && !canSeeBank)
+                        {
+                            <input class="form-control" value="@Model.Input.BankAccountNumber" disabled />
+                            <div class="form-text">Only users with bank-detail access can change the account number.</div>
+                        }
+                        else
+                        {
+                            <input asp-for="Input.BankAccountNumber" class="form-control" autocomplete="off" />
+                            <span asp-validation-for="Input.BankAccountNumber" class="field-validation-error"></span>
+                        }
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.MobileMoneyNumber" class="form-label">M-Pesa / mobile money number</label>
+                        <input asp-for="Input.MobileMoneyNumber" type="tel" class="form-control" />
+                        <span asp-validation-for="Input.MobileMoneyNumber" class="field-validation-error"></span>
+                    </div>
+                </div>
+            </section>
+
+            @if (Model.IsCreate)
+            {
+                <section class="card-pm mb-4">
+                    <div class="card-pm-header">
+                        <div>
+                            <h2 class="card-pm-title">Starting salary</h2>
+                            <p class="card-pm-subtitle">Optional. Creates a salary revision that another authorised user must approve.</p>
+                        </div>
+                    </div>
+                    <div class="card-pm-body row g-3">
+                        <div class="col-12">
+                            <label asp-for="Input.SalaryStructureId" class="form-label">Salary structure</label>
+                            <select asp-for="Input.SalaryStructureId" class="form-select" data-prefill-target="#basicSalary">
+                                <option value="">No structure (basic only)</option>
+                                @foreach (var s in Model.Lookups.SalaryStructures)
+                                {
+                                    <option value="@s.Id" data-prefill="@s.Extra">@s.Name</option>
+                                }
+                            </select>
+                            <div class="form-text">Applies the structure's allowances, scaled to this basic salary.</div>
+                        </div>
+                        <div class="col-sm-6 col-xl-12">
+                            <label asp-for="Input.BasicSalary" class="form-label">Monthly basic salary (KES)</label>
+                            <input asp-for="Input.BasicSalary" id="basicSalary" type="number" step="0.01" min="0" class="form-control" />
+                            <span asp-validation-for="Input.BasicSalary" class="field-validation-error"></span>
+                        </div>
+                        <div class="col-sm-6 col-xl-12">
+                            <label asp-for="Input.SalaryEffectiveDate" class="form-label">Effective date</label>
+                            <input asp-for="Input.SalaryEffectiveDate" type="date" class="form-control" />
+                            <div class="form-text">Defaults to the employment date.</div>
+                        </div>
+                    </div>
+                </section>
+            }
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-end gap-2 border-top pt-3">
+        <a asp-action="@(Model.IsCreate ? "Index" : "Details")" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">@(Model.IsCreate ? "Create employee" : "Save changes")</button>
+    </div>
+</form>

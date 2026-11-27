@@ -1,0 +1,76 @@
+@model PayMaster.Web.ViewModels.Payroll.PayrollIndexViewModel
+<div class="modal fade" id="runPayrollModal" tabindex="-1" aria-labelledby="runPayrollTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <form class="modal-content" method="post" asp-action="Create">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="runPayrollTitle">Run payroll</h2>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body d-grid gap-3">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="runPeriod">Payroll period</label>
+                        <select id="runPeriod" class="form-select" data-period-target>
+                            @foreach (var p in Model.Periods)
+                            {
+                                <option value="@p.Key" selected="@(p.Key == Model.Selected.Key)">@p.Name</option>
+                            }
+                        </select>
+                        <input type="hidden" name="Year" id="inputYear" value="@Model.Selected.Year" />
+                        <input type="hidden" name="Month" id="inputMonth" value="@Model.Selected.Month" />
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="runNotes">Notes (optional)</label>
+                        <input id="runNotes" name="Notes" class="form-control" maxlength="500" placeholder="e.g. Includes Q3 bonuses" />
+                    </div>
+                </div>
+
+                <div>
+                    <span class="form-label d-block">Employees to include</span>
+                    <div class="d-grid gap-2">
+                        <label class="border rounded-3 p-3 d-flex gap-3 align-items-start">
+                            <input class="form-check-input mt-1" type="radio" name="Scope" value="@PayrollScope.AllActive" checked />
+                            <span><strong>All active employees</strong><span class="d-block small text-muted">Everyone employed during the period, including joiners and leavers (prorated).</span></span>
+                        </label>
+                        <label class="border rounded-3 p-3 d-flex gap-3 align-items-start">
+                            <input class="form-check-input mt-1" type="radio" name="Scope" value="@PayrollScope.Department" />
+                            <span><strong>A department</strong><span class="d-block small text-muted">Run payroll for one department only.</span></span>
+                        </label>
+                        <label class="border rounded-3 p-3 d-flex gap-3 align-items-start">
+                            <input class="form-check-input mt-1" type="radio" name="Scope" value="@PayrollScope.SelectedEmployees" />
+                            <span><strong>Selected employees</strong><span class="d-block small text-muted">For off-cycle or supplementary payments.</span></span>
+                        </label>
+                    </div>
+                </div>
+
+                <div data-show-when="Scope=Department">
+                    <label class="form-label" for="runDepartment">Department</label>
+                    <select id="runDepartment" name="DepartmentId" class="form-select">
+                        @foreach (var d in Model.Departments)
+                        {
+                            <option value="@d.Id">@d.Name</option>
+                        }
+                    </select>
+                </div>
+                <div data-show-when="Scope=SelectedEmployees">
+                    <label class="form-label" for="runEmployees">Employees <span class="text-muted fw-normal">(Ctrl/Cmd-click to select several)</span></label>
+                    <select id="runEmployees" name="EmployeeIds" class="form-select" multiple size="8">
+                        @foreach (var e in Model.Employees)
+                        {
+                            <option value="@e.Id">@e.Name</option>
+                        }
+                    </select>
+                </div>
+
+                <div class="alert alert-light border small mb-0">
+                    <i class="bi bi-shield-check me-1 text-primary"></i>
+                    Employees already included in another live payroll for the period are skipped automatically, so nobody is paid twice.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="submit" class="btn btn-primary"><i class="bi bi-play-circle me-1"></i> Create payroll</button>
+            </div>
+        </form>
+    </div>
+</div>

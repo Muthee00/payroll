@@ -1,0 +1,40 @@
+@{
+    var displayName = Ui.DisplayName(User);
+}
+<header class="topbar">
+    <button type="button" class="icon-button sidebar-toggle" data-sidebar-toggle aria-label="Toggle navigation">
+        <i class="bi bi-list"></i>
+    </button>
+
+    <form class="topbar-search d-none d-md-block" method="get" asp-controller="Employees" asp-action="Index" role="search">
+        <div class="input-icon">
+            <i class="bi bi-search"></i>
+            <input class="form-control" type="search" name="search" placeholder="Search employees, departments, or anything..." aria-label="Search" />
+        </div>
+    </form>
+
+    <div class="topbar-actions">
+        @await Component.InvokeAsync("NotificationBell")
+
+        <div class="dropdown">
+            <button class="user-menu" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="avatar avatar-solid">@Ui.Initials(displayName)</span>
+                <span>
+                    <span class="name d-block">@displayName</span>
+                    <span class="role d-block">@Ui.PrimaryRole(User)</span>
+                </span>
+                <i class="bi bi-chevron-down text-muted small d-none d-lg-inline"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li><a class="dropdown-item" asp-controller="Account" asp-action="Profile"><i class="bi bi-person"></i> My profile</a></li>
+                <li><a class="dropdown-item" asp-controller="Account" asp-action="ChangePassword"><i class="bi bi-key"></i> Change password</a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                    <form method="post" asp-controller="Account" asp-action="Logout">
+                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right text-danger"></i> Sign out</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </div>
+</header>

@@ -1,0 +1,11 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/PayMaster.Application/PayMaster.Application.csproj" />
+    <Project Path="src/PayMaster.Domain/PayMaster.Domain.csproj" />
+    <Project Path="src/PayMaster.Infrastructure/PayMaster.Infrastructure.csproj" />
+    <Project Path="src/PayMaster.Web/PayMaster.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/PayMaster.Tests/PayMaster.Tests.csproj" />
+  </Folder>
+</Solution>

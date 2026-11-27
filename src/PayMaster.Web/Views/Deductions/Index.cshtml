@@ -1,0 +1,231 @@
+@model PayMaster.Web.ViewModels.Salary.DeductionsIndexViewModel
+@{
+    ViewData["Title"] = "Earnings & Deductions";
+    string Tab(string name) => Model.Tab == name ? "active" : "";
+    var canManageComponents = User.Can(Permissions.Salary.ManageStructures);
+    var q = Model.DeductionQuery;
+    var periodKey = Model.Inputs is { } inp ? $"{inp.Year:D4}-{inp.Month:D2}" : null;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item active" aria-current="page">Deductions</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">Earnings &amp; Deductions</h1>
+        <p class="page-subtitle">Recurring deductions, one-off payroll items for a period, and the catalogue of pay components.</p>
+    </div>
+    <div class="page-actions">
+        @if (Model.CanManage && Model.Tab == "recurring")
+        {
+            <a asp-action="CreateDeduction" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> Add deduction</a>
+        }
+        @if (Model.CanManage && Model.Tab == "inputs")
+        {
+            <a asp-action="CreateInput" asp-route-period="@periodKey" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> Add payroll item</a>
+        }
+        @if (canManageComponents && Model.Tab == "components")
+        {
+            <a asp-action="CreateComponent" class="btn btn-primary"><i class="bi bi-plus-lg me-1"></i> New component</a>
+        }
+    </div>
+</div>
+
+<ul class="nav nav-tabs-pm mb-4">
+    <li class="nav-item"><a class="nav-link @Tab("recurring")" asp-action="Index" asp-route-tab="recurring">Recurring deductions</a></li>
+    <li class="nav-item"><a class="nav-link @Tab("inputs")" asp-action="Index" asp-route-tab="inputs">Period items</a></li>
+    <li class="nav-item"><a class="nav-link @Tab("components")" asp-action="Index" asp-route-tab="components">Pay components</a></li>
+</ul>
+
+@if (Model.Tab == "recurring" && Model.Deductions is { } deductions)
+{
+    <div class="card-pm">
+        <div class="card-pm-body">
+            <form method="get" asp-action="Index" class="row g-2 align-items-end mb-3">
+                <input type="hidden" name="tab" value="recurring" />
+                <div class="col-md-5">
+                    <label class="form-label" for="search">Search</label>
+                    <div class="input-icon"><i class="bi bi-search"></i><input id="search" name="search" value="@q.Search" class="form-control" placeholder="Employee or reference" /></div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="salaryComponentId">Type</label>
+                    <select id="salaryComponentId" name="salaryComponentId" class="form-select" data-autosubmit>
+                        <option value="">All types</option>
+                        @foreach (var c in Model.Components.Where(c => c.Type == ComponentType.Deduction))
+                        {
+                            <option value="@c.Id" selected="@(q.SalaryComponentId == c.Id)">@c.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label" for="active">Status</label>
+                    <select id="active" name="active" class="form-select" data-autosubmit>
+                        <option value="true" selected="@(q.Active == true)">Active</option>
+                        <option value="false" selected="@(q.Active == false)">Completed / stopped</option>
+                        <option value="" selected="@(q.Active is null)">All</option>
+                    </select>
+                </div>
+                <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button></div>
+            </form>
+
+            @if (deductions.Items.Count == 0)
+            {
+                <div class="empty-state"><span class="empty-icon"><i class="bi bi-dash-circle"></i></span><h3>No deductions found</h3><p>Loans, HELB, insurance, pension and SACCO deductions are applied every payroll until stopped or repaid.</p></div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>Employee</th><th>Deduction</th><th>Reference</th><th class="text-end">Monthly</th><th class="text-end">Total</th><th class="text-end">Balance</th><th>From</th><th>Status</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var d in deductions.Items)
+                        {
+                            <tr>
+                                <td><a asp-controller="Employees" asp-action="Details" asp-route-id="@d.EmployeeId" class="row-link">@d.EmployeeName</a><div class="person-meta">@d.EmployeeNumber</div></td>
+                                <td>@d.ComponentName</td>
+                                <td class="text-muted">@(d.Reference ?? "—")</td>
+                                <td class="text-end money">@Ui.Money(d.MonthlyAmount)</td>
+                                <td class="text-end money">@(d.TotalAmount is decimal t ? Ui.Money(t) : "Ongoing")</td>
+                                <td class="text-end money">@(d.RemainingBalance is decimal b ? Ui.Money(b) : "—")</td>
+                                <td>@Ui.Date(d.StartDate)</td>
+                                <td><span class="status @(d.IsActive ? "status-success" : "status-neutral")">@(d.IsActive ? "Active" : "Ended")</span></td>
+                                <td class="text-end">
+                                    @if (Model.CanManage)
+                                    {
+                                        <div class="dropdown">
+                                            <button class="btn btn-light btn-icon btn-sm border-0" data-bs-toggle="dropdown" type="button" aria-label="Actions"><i class="bi bi-three-dots-vertical"></i></button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" asp-action="EditDeduction" asp-route-id="@d.Id"><i class="bi bi-pencil"></i> Edit</a></li>
+                                                @if (d.IsActive)
+                                                {
+                                                    <li>
+                                                        <form method="post" asp-action="StopDeduction" asp-route-id="@d.Id" data-confirm="Stop @d.ComponentName for @d.EmployeeName? It will not be deducted from future payrolls." data-confirm-button="Stop deduction" data-confirm-variant="warning">
+                                                            <button class="dropdown-item text-danger"><i class="bi bi-stop-circle text-danger"></i> Stop</button>
+                                                        </form>
+                                                    </li>
+                                                }
+                                            </ul>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+                <partial name="_Pager" model='PagerModel.From(deductions, "deductions")' />
+            }
+        </div>
+    </div>
+}
+else if (Model.Tab == "inputs" && Model.Inputs is { } inputs)
+{
+    <div class="row gap-row mb-4">
+        <div class="col-md-4"><div class="kpi-card kpi-blue"><span class="kpi-icon"><i class="bi bi-list-check"></i></span><div><div class="kpi-label">Items for @inputs.PeriodName</div><div class="kpi-value">@inputs.Items.Count</div></div></div></div>
+        <div class="col-md-4"><div class="kpi-card kpi-green"><span class="kpi-icon"><i class="bi bi-plus-circle"></i></span><div><div class="kpi-label">Additional earnings</div><div class="kpi-value">@Ui.MoneyShort(inputs.TotalEarnings)</div></div></div></div>
+        <div class="col-md-4"><div class="kpi-card kpi-red"><span class="kpi-icon"><i class="bi bi-dash-circle"></i></span><div><div class="kpi-label">One-off deductions</div><div class="kpi-value">@Ui.MoneyShort(inputs.TotalDeductions)</div></div></div></div>
+    </div>
+    <div class="card-pm">
+        <div class="card-pm-body">
+            <form method="get" asp-action="Index" class="row g-2 align-items-end mb-3">
+                <input type="hidden" name="tab" value="inputs" />
+                <div class="col-md-3">
+                    <label class="form-label" for="period">Payroll period</label>
+                    <select id="period" name="period" class="form-select" data-autosubmit>
+                        @foreach (var p in Model.Periods)
+                        {
+                            <option value="@p.Key" selected="@(p.Key == periodKey)">@p.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-5">
+                    <label class="form-label" for="inputSearch">Employee</label>
+                    <div class="input-icon"><i class="bi bi-search"></i><input id="inputSearch" name="inputSearch" value="@Model.InputSearch" class="form-control" placeholder="Name or number" /></div>
+                </div>
+                <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit"><i class="bi bi-funnel me-1"></i> Filter</button></div>
+            </form>
+
+            @if (inputs.Items.Count == 0)
+            {
+                <div class="empty-state"><span class="empty-icon"><i class="bi bi-calendar2-plus"></i></span><h3>No items for @inputs.PeriodName</h3><p>Add overtime, bonuses, commissions, salary advances or absenteeism for this month before running payroll.</p></div>
+            }
+            else
+            {
+                <div class="table-wrap">
+                    <table class="table table-pm">
+                        <thead><tr><th>Employee</th><th>Item</th><th class="text-end">Qty × Rate</th><th class="text-end">Amount</th><th>Description</th><th></th></tr></thead>
+                        <tbody>
+                        @foreach (var i in inputs.Items)
+                        {
+                            <tr>
+                                <td><a asp-controller="Employees" asp-action="Details" asp-route-id="@i.EmployeeId" class="row-link">@i.EmployeeName</a><div class="person-meta">@i.EmployeeNumber · @i.DepartmentName</div></td>
+                                <td><span class="status @(i.Type == ComponentType.Earning ? "status-success" : "status-danger")">@i.ComponentName</span></td>
+                                <td class="text-end">@(i.Quantity is decimal qty && i.Rate is decimal rate ? $"{qty:0.##} × {Ui.Number(rate, 2)}" : "—")</td>
+                                <td class="text-end money fw-semibold">@(i.Type == ComponentType.Deduction ? "−" : "")@Ui.Money(i.Amount)</td>
+                                <td class="text-wrap-cell text-muted">@(i.Description ?? "—")</td>
+                                <td class="text-end">
+                                    @if (i.IsLocked)
+                                    {
+                                        <span class="small text-muted"><i class="bi bi-lock"></i> In payroll</span>
+                                    }
+                                    else if (Model.CanManage)
+                                    {
+                                        <div class="d-flex gap-1 justify-content-end">
+                                            <a asp-action="EditInput" asp-route-id="@i.Id" class="btn btn-light btn-icon btn-sm border-0" aria-label="Edit"><i class="bi bi-pencil"></i></a>
+                                            <form method="post" asp-action="DeleteInput" asp-route-id="@i.Id" asp-route-period="@periodKey" data-confirm="Remove this @i.ComponentName item?" data-confirm-button="Remove" data-confirm-variant="danger">
+                                                <button class="btn btn-light btn-icon btn-sm border-0" aria-label="Remove"><i class="bi bi-trash text-danger"></i></button>
+                                            </form>
+                                        </div>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="card-pm">
+        <div class="card-pm-body">
+            <div class="table-wrap">
+                <table class="table table-pm">
+                    <thead><tr><th>Component</th><th>Code</th><th>Type</th><th>Category</th><th>Tax treatment</th><th>Frequency</th><th>Status</th><th></th></tr></thead>
+                    <tbody>
+                    @foreach (var c in Model.Components)
+                    {
+                        <tr class="@(c.IsActive ? "" : "opacity-50")">
+                            <td class="fw-semibold">@c.Name<div class="person-meta">@c.Description</div></td>
+                            <td class="text-muted">@c.Code</td>
+                            <td><span class="status @(c.Type == ComponentType.Earning ? "status-success" : "status-danger")">@c.Type</span></td>
+                            <td>@Ui.Humanize(c.Category)</td>
+                            <td>@Ui.Humanize(c.TaxTreatment)</td>
+                            <td>@(c.IsRecurring ? "Recurring" : "Per period")</td>
+                            <td>@(c.IsActive ? "Active" : "Inactive")</td>
+                            <td class="text-end">
+                                @if (canManageComponents)
+                                {
+                                    <div class="d-flex gap-1 justify-content-end">
+                                        <a asp-action="EditComponent" asp-route-id="@c.Id" class="btn btn-light btn-icon btn-sm border-0" aria-label="Edit"><i class="bi bi-pencil"></i></a>
+                                        <form method="post" asp-action="ToggleComponent" asp-route-id="@c.Id" asp-route-active="@(!c.IsActive)">
+                                            <button class="btn btn-light btn-icon btn-sm border-0" aria-label="@(c.IsActive ? "Deactivate" : "Activate")" title="@(c.IsActive ? "Deactivate" : "Activate")">
+                                                <i class="bi @(c.IsActive ? "bi-toggle-on text-success" : "bi-toggle-off")"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                }
+                            </td>
+                        </tr>
+                    }
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>PAYE, SHIF, Housing Levy and NSSF are calculated by the statutory engine and are configured under Statutory Settings.</p>
+        </div>
+    </div>
+}

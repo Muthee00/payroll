@@ -1,0 +1,118 @@
+@using PayMaster.Application.Reports
+@model PayMaster.Web.ViewModels.Reports.ReportViewModel
+@{
+    var r = Model.Result;
+    var f = Model.Filter;
+    ViewData["Title"] = r.Title;
+    var current = Model.Periods.Skip(1).FirstOrDefault()?.Key;
+    string Cell(ReportColumn column, object? value) => ReportFormat.Cell(column, value);
+    var query = new Dictionary<string, string?> { ["From"] = f.From, ["To"] = f.To, ["DepartmentId"] = f.DepartmentId?.ToString(), ["EmployeeId"] = f.EmployeeId?.ToString() };
+}
+<nav aria-label="breadcrumb" class="no-print">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Reports</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@r.Title</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">@r.Title</h1>
+        <p class="page-subtitle">@r.Subtitle · @r.Rows.Count row(s)</p>
+    </div>
+    <div class="page-actions no-print">
+        <button type="button" class="btn btn-outline-secondary" data-print><i class="bi bi-printer me-1"></i> Print</button>
+        <a asp-action="Pdf" asp-route-id="@r.Key" asp-all-route-data="query!" class="btn btn-outline-secondary"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</a>
+        <a asp-action="Excel" asp-route-id="@r.Key" asp-all-route-data="query!" class="btn btn-primary"><i class="bi bi-file-earmark-spreadsheet me-1"></i> Excel</a>
+    </div>
+</div>
+
+<div class="card-pm mb-4 no-print">
+    <div class="card-pm-body">
+        <form method="get" asp-action="Run" asp-route-id="@r.Key" class="row g-2 align-items-end">
+            <div class="col-md-3 col-lg-2">
+                <label class="form-label" for="From">From</label>
+                <select id="From" name="From" class="form-select">
+                    @foreach (var p in Model.Periods) { <option value="@p.Key" selected="@(p.Key == (f.From ?? f.To ?? current))">@p.Name</option> }
+                </select>
+            </div>
+            <div class="col-md-3 col-lg-2">
+                <label class="form-label" for="To">To</label>
+                <select id="To" name="To" class="form-select">
+                    @foreach (var p in Model.Periods) { <option value="@p.Key" selected="@(p.Key == (f.To ?? current))">@p.Name</option> }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="DepartmentId">Department</label>
+                <select id="DepartmentId" name="DepartmentId" class="form-select">
+                    <option value="">All departments</option>
+                    @foreach (var d in Model.Departments) { <option value="@d.Id" selected="@(f.DepartmentId == d.Id)">@d.Name</option> }
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="EmployeeId">Employee</label>
+                <select id="EmployeeId" name="EmployeeId" class="form-select">
+                    <option value="">All employees</option>
+                    @foreach (var e in Model.Employees) { <option value="@e.Id" selected="@(f.EmployeeId == e.Id)">@e.Name</option> }
+                </select>
+            </div>
+            <div class="col-md-2"><button class="btn btn-outline-secondary w-100" type="submit"><i class="bi bi-funnel me-1"></i> Apply</button></div>
+        </form>
+    </div>
+</div>
+
+<div class="card-pm">
+    <div class="card-pm-body">
+        @if (r.Rows.Count == 0)
+        {
+            <div class="empty-state">
+                <span class="empty-icon"><i class="bi bi-table"></i></span>
+                <h3>No data for these filters</h3>
+                <p>@(Model.Definition.Category == "Performance" ? "Try a wider date range." : "Payroll reports include finalized and paid payroll only. Try a different period.")</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-wrap">
+                <table class="table table-pm">
+                    <thead>
+                    <tr>
+                        @foreach (var c in r.Columns)
+                        {
+                            <th class="@(c.Kind == ReportColumnKind.Text ? "" : "text-end")">@c.Header</th>
+                        }
+                    </tr>
+                    </thead>
+                    <tbody>
+                    @foreach (var row in r.Rows)
+                    {
+                        <tr>
+                            @for (var i = 0; i < r.Columns.Count; i++)
+                            {
+                                var text = Cell(r.Columns[i], row[i]);
+                                <td class="@(r.Columns[i].Kind == ReportColumnKind.Text ? "" : "text-end money") @(text is "MISSING" or "CHECK" ? "text-danger fw-semibold" : null)">@text</td>
+                            }
+                        </tr>
+                    }
+                    </tbody>
+                    @if (r.HasTotals)
+                    {
+                        var totals = r.Totals;
+                        <tfoot>
+                        <tr class="fw-bold" style="background: var(--pm-surface-muted);">
+                            @for (var i = 0; i < r.Columns.Count; i++)
+                            {
+                                <td class="@(r.Columns[i].Kind == ReportColumnKind.Text ? "" : "text-end money") py-2 px-3">@(i == 0 && totals[i] is null ? "Total" : Cell(r.Columns[i], totals[i]))</td>
+                            }
+                        </tr>
+                        </tfoot>
+                    }
+                </table>
+            </div>
+        }
+        @foreach (var note in r.Notes)
+        {
+            <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>@note</p>
+        }
+    </div>
+</div>

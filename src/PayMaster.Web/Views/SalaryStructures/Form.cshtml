@@ -1,0 +1,124 @@
+@model PayMaster.Web.ViewModels.Salary.SalaryStructureFormViewModel
+@{
+    var title = Model.IsCreate ? "New salary structure" : $"Edit {Model.Input.Name}";
+    ViewData["Title"] = title;
+}
+<nav aria-label="breadcrumb">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a asp-controller="Dashboard" asp-action="Index">Dashboard</a></li>
+        <li class="breadcrumb-item"><a asp-action="Index">Salary Structures</a></li>
+        <li class="breadcrumb-item active" aria-current="page">@(Model.IsCreate ? "New" : "Edit")</li>
+    </ol>
+</nav>
+<div class="page-header">
+    <div>
+        <h1 class="page-title">@title</h1>
+        <p class="page-subtitle">Define basic pay and standard allowances. Allowances with a zero amount are left out.</p>
+    </div>
+</div>
+
+<form method="post" asp-action="@(Model.IsCreate ? "Create" : "Edit")" asp-route-id="@Model.Id" novalidate>
+    <div asp-validation-summary="All" class="alert alert-danger" role="alert"></div>
+    <div class="row gap-row">
+        <div class="col-lg-5">
+            <section class="card-pm h-100">
+                <div class="card-pm-header"><h2 class="card-pm-title">Structure details</h2></div>
+                <div class="card-pm-body row g-3">
+                    <div class="col-sm-5">
+                        <label asp-for="Input.Code" class="form-label">Code *</label>
+                        <input asp-for="Input.Code" class="form-control text-uppercase" placeholder="SS-SWE" />
+                    </div>
+                    <div class="col-sm-7">
+                        <label asp-for="Input.Name" class="form-label">Name *</label>
+                        <input asp-for="Input.Name" class="form-control" placeholder="Software Engineer" />
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.SalaryGradeId" class="form-label">Grade</label>
+                        <select asp-for="Input.SalaryGradeId" class="form-select">
+                            <option value="">No grade</option>
+                            @foreach (var g in Model.Grades)
+                            {
+                                <option value="@g.Id">@g.Name (@Ui.MoneyShort(g.MinimumSalary) – @Ui.MoneyShort(g.MaximumSalary))</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label asp-for="Input.DepartmentId" class="form-label">Department</label>
+                        <select asp-for="Input.DepartmentId" class="form-select" id="structureDepartment">
+                            <option value="">All departments</option>
+                            @foreach (var d in Model.Lookups.Departments)
+                            {
+                                <option value="@d.Id">@d.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label asp-for="Input.PositionId" class="form-label">Job title</label>
+                        <select asp-for="Input.PositionId" class="form-select" data-filter-parent="#structureDepartment">
+                            <option value="">Any job title</option>
+                            @foreach (var p in Model.Lookups.Positions)
+                            {
+                                <option value="@p.Id" data-parent="@p.Extra">@p.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.BasicSalary" class="form-label">Monthly basic salary (KES) *</label>
+                        <input asp-for="Input.BasicSalary" type="number" step="0.01" min="0" class="form-control" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label asp-for="Input.EffectiveFrom" class="form-label">Effective from *</label>
+                        <input asp-for="Input.EffectiveFrom" type="date" class="form-control" />
+                    </div>
+                    <div class="col-sm-6">
+                        <label asp-for="Input.EffectiveTo" class="form-label">Effective to</label>
+                        <input asp-for="Input.EffectiveTo" type="date" class="form-control" />
+                    </div>
+                    <div class="col-12">
+                        <label asp-for="Input.Description" class="form-label">Description</label>
+                        <textarea asp-for="Input.Description" class="form-control" rows="2"></textarea>
+                    </div>
+                </div>
+            </section>
+        </div>
+        <div class="col-lg-7">
+            <section class="card-pm h-100">
+                <div class="card-pm-header">
+                    <div>
+                        <h2 class="card-pm-title">Allowances</h2>
+                        <p class="card-pm-subtitle">Fixed KES amounts or a percentage of basic salary.</p>
+                    </div>
+                </div>
+                <div class="card-pm-body">
+                    <div class="table-wrap">
+                        <table class="table table-pm">
+                            <thead><tr><th>Allowance</th><th>Tax treatment</th><th style="width:190px;">Type</th><th style="width:170px;">Amount</th></tr></thead>
+                            <tbody>
+                            @for (var i = 0; i < Model.Input.Lines.Count; i++)
+                            {
+                                var component = Model.Allowances.First(a => a.Id == Model.Input.Lines[i].SalaryComponentId);
+                                <tr>
+                                    <td class="fw-semibold">@component.Name<input type="hidden" asp-for="Input.Lines[i].SalaryComponentId" /></td>
+                                    <td><span class="status @(component.TaxTreatment == TaxTreatment.Taxable ? "status-info" : "status-neutral")">@Ui.Humanize(component.TaxTreatment)</span></td>
+                                    <td>
+                                        <select asp-for="Input.Lines[i].AmountType" class="form-select form-select-sm">
+                                            <option value="@AmountType.Fixed">Fixed amount</option>
+                                            <option value="@AmountType.PercentageOfBasic">% of basic</option>
+                                        </select>
+                                    </td>
+                                    <td><input asp-for="Input.Lines[i].Amount" type="number" step="0.01" min="0" class="form-control form-control-sm text-end" /></td>
+                                </tr>
+                            }
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="small text-muted mt-3 mb-0"><i class="bi bi-info-circle me-1"></i>Add new allowance types under Deductions › Pay components.</p>
+                </div>
+            </section>
+        </div>
+    </div>
+    <div class="d-flex justify-content-end gap-2 border-top pt-3 mt-4">
+        <a asp-action="@(Model.IsCreate ? "Index" : "Details")" asp-route-id="@Model.Id" class="btn btn-outline-secondary">Cancel</a>
+        <button type="submit" class="btn btn-primary">@(Model.IsCreate ? "Create structure" : "Save structure")</button>
+    </div>
+</form>

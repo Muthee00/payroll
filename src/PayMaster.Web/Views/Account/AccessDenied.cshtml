@@ -1,0 +1,11 @@
+@{
+    ViewData["Title"] = "Access denied";
+}
+<div class="card-pm">
+    <div class="empty-state">
+        <span class="empty-icon" style="background:var(--pm-danger-soft);color:var(--pm-danger);"><i class="bi bi-shield-lock"></i></span>
+        <h3>You don't have access to this page</h3>
+        <p>Your role does not include the permission required. Contact a system administrator if you need access.</p>
+        <a asp-controller="Dashboard" asp-action="Index" class="btn btn-primary mt-2">Go to dashboard</a>
+    </div>
+</div>

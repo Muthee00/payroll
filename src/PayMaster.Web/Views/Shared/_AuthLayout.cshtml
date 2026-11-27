@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>@ViewData["Title"] · PayMaster</title>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+</head>
+<body>
+<div class="auth-shell">
+    <aside class="auth-aside">
+        <div class="d-flex align-items-center gap-3">
+            <span class="brand-mark"><i class="bi bi-wallet2"></i></span>
+            <span>
+                <span class="brand-name d-block">PayMaster</span>
+                <span class="brand-tagline">Payroll &amp; HR</span>
+            </span>
+        </div>
+
+        <div>
+            <h2 class="mb-4">Run payroll for your whole team with confidence.</h2>
+            <div class="auth-feature">
+                <i class="bi bi-calculator"></i>
+                <div><strong>Kenyan statutory engine</strong>PAYE, SHIF, Housing Levy and NSSF from versioned, auditable rules.</div>
+            </div>
+            <div class="auth-feature">
+                <i class="bi bi-shield-check"></i>
+                <div><strong>Approval workflow</strong>Draft, approve and finalize with a full audit trail and immutable history.</div>
+            </div>
+            <div class="auth-feature">
+                <i class="bi bi-graph-up-arrow"></i>
+                <div><strong>Performance built in</strong>Goals, KPIs and structured reviews alongside payroll.</div>
+            </div>
+        </div>
+
+        <div class="small" style="color:#6b7ca3;">&copy; @DateTime.UtcNow.Year PayMaster</div>
+    </aside>
+
+    <main class="auth-main">
+        <div class="auth-card">
+            @RenderBody()
+        </div>
+    </main>
+</div>
+
+<partial name="_Toasts" />
+<script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+<script src="~/js/site.js" asp-append-version="true"></script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+@using PayMaster.Application.Statutory
+@model StatutoryRateRow
+@if (Model.StoredValue is not decimal v)
+{
+    <span class="text-muted">Not set</span>
+}
+else
+{
+    @switch (Model.Info.Unit)
+    {
+        case StatutoryValueUnit.Percent:
+            @((v * 100m).ToString("0.####"))<text>%</text>
+            break;
+        case StatutoryValueUnit.Flag:
+            <span class="status @(v == 1 ? "status-success" : "status-neutral")">@(v == 1 ? "Yes" : "No")</span>
+            break;
+        default:
+            @(v == 0 && Model.Info.Key == PayMaster.Domain.Enums.StatutoryRateKey.ShaMaximumContribution ? "No maximum" : Ui.Money(v))
+            break;
+    }
+}

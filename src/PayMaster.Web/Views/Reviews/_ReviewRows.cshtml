@@ -1,0 +1,25 @@
+@using PayMaster.Application.Performance
+@model IReadOnlyList<ReviewListItem>
+<div class="table-wrap">
+    <table class="table table-pm">
+        <thead><tr><th>Employee</th><th>Cycle</th><th>Stage</th><th>Reviewer</th><th class="text-end">Score</th><th>Due</th></tr></thead>
+        <tbody>
+        @foreach (var r in Model)
+        {
+            <tr data-href="@Url.Action("Details", "Reviews", new { id = r.Id })" style="cursor:pointer;">
+                <td>
+                    <div class="person">
+                        <span class="avatar avatar-sm @Ui.AvatarClass(r.EmployeeNumber)">@Ui.Initials(r.EmployeeName)</span>
+                        <div><a asp-controller="Reviews" asp-action="Details" asp-route-id="@r.Id" class="row-link">@r.EmployeeName</a><div class="person-meta">@r.DepartmentName</div></div>
+                    </div>
+                </td>
+                <td>@r.CycleName<div class="person-meta">@Ui.Humanize(r.ReviewType)</div></td>
+                <td><span class="status @Ui.StatusCss(r.Status)">@Ui.ReviewStage(r.Status)</span></td>
+                <td>@(r.ReviewerName ?? "HR")</td>
+                <td class="text-end">@(r.OverallScore is decimal s ? s.ToString("0.00") : "—")<div class="person-meta">@r.OverallRating</div></td>
+                <td class="@(r.IsOverdue ? "text-danger fw-semibold" : null)">@Ui.Date(r.DueDate)@(r.IsOverdue ? " · overdue" : "")</td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

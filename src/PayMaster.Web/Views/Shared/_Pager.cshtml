@@ -1,0 +1,46 @@
+@model PagerModel
+@{
+    string PageUrl(int page)
+    {
+        var query = Context.Request.Query
+            .Where(q => !string.Equals(q.Key, "page", StringComparison.OrdinalIgnoreCase))
+            .SelectMany(q => q.Value.Select(v => $"{Uri.EscapeDataString(q.Key)}={Uri.EscapeDataString(v ?? "")}"))
+            .Append($"page={page}");
+        return $"{Context.Request.Path}?{string.Join("&", query)}";
+    }
+
+    var start = Math.Max(1, Model.Page - 2);
+    var end = Math.Min(Model.TotalPages, start + 4);
+    start = Math.Max(1, end - 4);
+}
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 pt-3">
+    <span class="text-muted small">
+        @if (Model.TotalCount == 0)
+        {
+            <text>No @Model.ItemLabel</text>
+        }
+        else
+        {
+            <text>Showing @Model.FirstItem–@Model.LastItem of @Model.TotalCount @Model.ItemLabel</text>
+        }
+    </span>
+    @if (Model.TotalPages > 1)
+    {
+        <nav aria-label="Pagination">
+            <ul class="pagination pagination-sm">
+                <li class="page-item @(Model.Page <= 1 ? "disabled" : null)">
+                    <a class="page-link" href="@PageUrl(Model.Page - 1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></a>
+                </li>
+                @for (var p = start; p <= end; p++)
+                {
+                    <li class="page-item @(p == Model.Page ? "active" : null)">
+                        <a class="page-link" href="@PageUrl(p)" aria-current="@(p == Model.Page ? "page" : null)">@p</a>
+                    </li>
+                }
+                <li class="page-item @(Model.Page >= Model.TotalPages ? "disabled" : null)">
+                    <a class="page-link" href="@PageUrl(Model.Page + 1)" aria-label="Next"><i class="bi bi-chevron-right"></i></a>
+                </li>
+            </ul>
+        </nav>
+    }
+</div>
